@@ -2,48 +2,11 @@ package cdp
 
 import "encoding/json"
 
-// defaultTargetInfo is the target info for our single page target.
-var defaultTargetInfo = map[string]interface{}{
-	"targetId":         "default",
-	"type":             "page",
-	"title":            "",
-	"url":              "about:blank",
-	"attached":         true,
-	"browserContextId": "default-context",
-}
-
 // registerStubs adds no-op handlers for CDP methods that Puppeteer and
 // Playwright call during connection setup. Without these, the clients
 // receive -32601 errors and may fail to initialize.
 func registerStubs(s *Server) {
 	empty := emptyHandler
-
-	// Target domain — session management methods.
-	attached := false
-	s.HandleSession("Target.setAutoAttach", func(sess *Session, _ json.RawMessage) (json.RawMessage, []Event, error) {
-		r, err := json.Marshal(struct{}{})
-		if err != nil {
-			return nil, nil, err
-		}
-		if attached {
-			return r, nil, nil
-		}
-		attached = true
-		// Send event via session BEFORE returning response so the client
-		// processes the attachment before the response resolves.
-		_ = sess.SendEvent("Target.attachedToTarget", map[string]interface{}{
-			"sessionId":          "default-session",
-			"targetInfo":         defaultTargetInfo,
-			"waitingForDebugger": false,
-		})
-		return r, nil, nil
-	})
-	s.HandleSession("Target.setDiscoverTargets", handleSetDiscoverTargets)
-	s.Handle("Target.getTargetInfo", handleGetTargetInfo)
-	s.Handle("Target.getTargets", handleGetTargets)
-	s.Handle("Target.getBrowserContexts", handleGetBrowserContexts)
-	s.Handle("Target.attachToTarget", handleAttachToTarget)
-	s.HandleSession("Target.createTarget", handleCreateTarget)
 
 	// Browser domain.
 	s.Handle("Browser.getVersion", handleBrowserGetVersion(s))
@@ -91,34 +54,6 @@ func emptyHandler(_ json.RawMessage) (json.RawMessage, error) {
 	return json.Marshal(struct{}{})
 }
 
-// handleSetDiscoverTargets returns success and emits a targetCreated event
-// for the default page target so Puppeteer can discover it.
-func handleSetDiscoverTargets(sess *Session, _ json.RawMessage) (json.RawMessage, []Event, error) {
-	r, err := json.Marshal(struct{}{})
-	if err != nil {
-		return nil, nil, err
-	}
-
-	// Send event via session BEFORE returning response.
-	_ = sess.SendEvent("Target.targetCreated", map[string]interface{}{
-		"targetInfo": defaultTargetInfo,
-	})
-
-	return r, nil, nil
-}
-
-func handleGetTargetInfo(_ json.RawMessage) (json.RawMessage, error) {
-	return json.Marshal(map[string]interface{}{
-		"targetInfo": defaultTargetInfo,
-	})
-}
-
-func handleGetTargets(_ json.RawMessage) (json.RawMessage, error) {
-	return json.Marshal(map[string]interface{}{
-		"targetInfos": []interface{}{defaultTargetInfo},
-	})
-}
-
 func handleBrowserGetVersion(s *Server) Handler {
 	return func(_ json.RawMessage) (json.RawMessage, error) {
 		return json.Marshal(map[string]interface{}{
@@ -140,35 +75,6 @@ func handleGetBrowserContexts(_ json.RawMessage) (json.RawMessage, error) {
 	return json.Marshal(map[string]interface{}{
 		"browserContextIds": []string{},
 	})
-}
-
-func handleAttachToTarget(_ json.RawMessage) (json.RawMessage, error) {
-	return json.Marshal(map[string]interface{}{
-		"sessionId": "default-session",
-	})
-}
-
-func handleCreateTarget(_ *Session, _ json.RawMessage) (json.RawMessage, []Event, error) {
-	r, err := json.Marshal(map[string]interface{}{
-		"targetId": "default",
-	})
-	if err != nil {
-		return nil, nil, err
-	}
-
-	createdParams, _ := json.Marshal(map[string]interface{}{
-		"targetInfo": defaultTargetInfo,
-	})
-	attachedParams, _ := json.Marshal(map[string]interface{}{
-		"sessionId":          "default-session",
-		"targetInfo":         defaultTargetInfo,
-		"waitingForDebugger": false,
-	})
-
-	return r, []Event{
-		{Method: "Target.targetCreated", Params: createdParams},
-		{Method: "Target.attachedToTarget", Params: attachedParams},
-	}, nil
 }
 
 func handleRunIfWaitingForDebugger(_ *Session, _ json.RawMessage) (json.RawMessage, []Event, error) {
@@ -212,8 +118,6 @@ func handleAddScriptToEvaluateOnNewDocument(_ *Session, params json.RawMessage) 
 
 	var events []Event
 
-	// If a worldName is specified, emit an executionContextCreated event
-	// for that world. Playwright needs this to initialize utility worlds.
 	if p.WorldName != "" {
 		ctxData, _ := json.Marshal(map[string]interface{}{
 			"context": map[string]interface{}{

@@ -28,11 +28,19 @@ func Setup(s *Server) *page.Page {
 	pageDomain := NewPageDomain(p)
 	domDomain := NewDOMDomain(p)
 
+	// Target domain: manages page targets.
+	targetDomain := NewTargetDomain(s, func() (*page.Page, error) {
+		newPage := page.New(&page.Options{Fetcher: fetcher})
+		return newPage, nil
+	})
+	targetDomain.AddPage(p, "default-context")
+
 	pageDomain.Register(s)
 	domDomain.Register(s)
 	runtimeDomain.Register(s)
 	networkDomain.Register(s)
 	fetchDomain.Register(s)
+	targetDomain.Register(s)
 	registerStubs(s)
 
 	return p

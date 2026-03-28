@@ -17,6 +17,7 @@ type Server struct {
 	mu              sync.RWMutex
 	handlers        map[string]Handler
 	sessionHandlers map[string]SessionHandler
+	sessions        []*Session
 	addr            string
 	listener        net.Listener
 	srv             *http.Server
@@ -129,6 +130,8 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 
 	ctx := r.Context()
 	sess := newSession(ctx, conn)
+	s.addSession(sess)
+	defer s.removeSession(sess)
 
 	for {
 		_, data, err := conn.Read(ctx)
@@ -159,6 +162,35 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 				_ = sess.WriteJSON(evt)
 			}
 		}(req)
+	}
+}
+
+func (s *Server) addSession(sess *Session) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.sessions = append(s.sessions, sess)
+}
+
+func (s *Server) removeSession(sess *Session) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i, se := range s.sessions {
+		if se == sess {
+			s.sessions = append(s.sessions[:i], s.sessions[i+1:]...)
+			return
+		}
+	}
+}
+
+// Broadcast sends an event to all connected sessions.
+func (s *Server) Broadcast(method string, params interface{}) {
+	s.mu.RLock()
+	sessions := make([]*Session, len(s.sessions))
+	copy(sessions, s.sessions)
+	s.mu.RUnlock()
+
+	for _, sess := range sessions {
+		_ = sess.SendEvent(method, params)
 	}
 }
 

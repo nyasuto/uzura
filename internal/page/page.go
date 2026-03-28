@@ -3,22 +3,24 @@
 package page
 
 import (
-	"bytes"
-	"context"
+	"errors"
 	"fmt"
-	"io"
 	"net/http"
+	"sync"
 	"sync/atomic"
-	"time"
 
-	"github.com/nyasuto/uzura/internal/css"
 	"github.com/nyasuto/uzura/internal/dom"
-	"github.com/nyasuto/uzura/internal/html"
 	"github.com/nyasuto/uzura/internal/js"
 	"github.com/nyasuto/uzura/internal/network"
 )
 
-var requestCounter atomic.Int64
+var (
+	requestCounter atomic.Int64
+	pageIDCounter  atomic.Int64
+)
+
+// ErrPageClosed is returned when an operation is attempted on a closed page.
+var ErrPageClosed = errors.New("page is closed")
 
 // NetworkEvent represents a network event emitted during page loading.
 type NetworkEvent struct {
@@ -63,9 +65,14 @@ const (
 // NetworkObserver is called for each network event during navigation.
 type NetworkObserver func(evt NetworkEvent)
 
+// CloseObserver is called when a page is closed.
+type CloseObserver func(p *Page)
+
 // Page represents a single browsing page (tab).
 // It coordinates fetching, parsing, and DOM construction.
 type Page struct {
+	mu                 sync.Mutex
+	id                 string
 	fetcher            *network.Fetcher
 	doc                *dom.Document
 	url                string
@@ -73,6 +80,8 @@ type Page struct {
 	vmOptions          []js.Option
 	networkObserver    NetworkObserver
 	requestInterceptor RequestInterceptor
+	closeObserver      CloseObserver
+	closed             bool
 }
 
 // Options configures a Page.
@@ -101,149 +110,57 @@ func New(opts *Options) *Page {
 	if f == nil {
 		f = network.NewFetcher(nil)
 	}
-	return &Page{fetcher: f, vmOptions: vmOpts, networkObserver: obs, requestInterceptor: intercept}
+	id := fmt.Sprintf("page-%d", pageIDCounter.Add(1))
+	return &Page{
+		id:                 id,
+		fetcher:            f,
+		vmOptions:          vmOpts,
+		networkObserver:    obs,
+		requestInterceptor: intercept,
+	}
 }
 
-// Navigate loads the document at the given URL.
-// It performs: robots check → fetch → decode → parse → DOM construction.
-func (p *Page) Navigate(ctx context.Context, url string) error {
-	reqID := fmt.Sprintf("req-%d", requestCounter.Add(1))
-	now := func() float64 { return float64(time.Now().UnixMilli()) / 1000.0 }
+// ID returns the unique identifier for this page.
+func (p *Page) ID() string {
+	return p.id
+}
 
-	p.emit(NetworkEvent{
-		Type:      NetworkRequestWillBeSent,
-		RequestID: reqID,
-		URL:       url,
-		Method:    http.MethodGet,
-		Timestamp: now(),
-	})
+// SetCloseObserver sets a callback invoked when this page is closed.
+func (p *Page) SetCloseObserver(obs CloseObserver) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.closeObserver = obs
+}
 
-	fetchURL := url
-	var headerOverrides http.Header
-
-	// Request interception hook: if an interceptor is set, pause and wait
-	// for its decision before proceeding with the fetch.
-	if p.requestInterceptor != nil {
-		result, iErr := p.requestInterceptor(ctx, InterceptedRequest{
-			RequestID: reqID,
-			URL:       url,
-			Method:    http.MethodGet,
-			Stage:     StageRequest,
-		})
-		if iErr != nil {
-			p.emitFailed(reqID, url, now(), iErr.Error())
-			return fmt.Errorf("navigate %s: intercept: %w", url, iErr)
-		}
-		if result != nil {
-			switch result.Action {
-			case InterceptFail:
-				reason := result.ErrorReason
-				if reason == "" {
-					reason = "BlockedByClient"
-				}
-				p.emitFailed(reqID, url, now(), reason)
-				return fmt.Errorf("navigate %s: blocked by client (%s)", url, reason)
-			case InterceptFulfill:
-				return p.handleFulfill(reqID, url, now, result)
-			case InterceptContinue:
-				if result.URL != "" {
-					fetchURL = result.URL
-				}
-				if result.Headers != nil {
-					headerOverrides = result.Headers
-				}
-			}
-		}
+// Close releases all resources held by this page (VM, DOM, observers).
+// After Close, the page must not be used.
+func (p *Page) Close() error {
+	p.mu.Lock()
+	if p.closed {
+		p.mu.Unlock()
+		return nil
 	}
+	p.closed = true
+	obs := p.closeObserver
+	p.vm = nil
+	p.doc = nil
+	p.url = ""
+	p.networkObserver = nil
+	p.requestInterceptor = nil
+	p.closeObserver = nil
+	p.mu.Unlock()
 
-	resp, err := p.fetchWithOverrides(ctx, fetchURL, headerOverrides)
-	if err != nil {
-		p.emitFailed(reqID, url, now(), err.Error())
-		return fmt.Errorf("navigate %s: %w", url, err)
+	if obs != nil {
+		obs(p)
 	}
-	defer resp.Body.Close()
-
-	statusCode := resp.StatusCode
-	respHeaders := resp.Header
-	respURL := resp.Request.URL.String()
-	mimeType := mimeFromResponse(resp)
-
-	reader, err := network.DecodeResponse(resp)
-	if err != nil {
-		return fmt.Errorf("navigate decode %s: %w", url, err)
-	}
-	bodyBytes, err := io.ReadAll(reader)
-	if err != nil {
-		return fmt.Errorf("navigate read %s: %w", url, err)
-	}
-
-	// Response-stage interception: pause after response is received.
-	if p.requestInterceptor != nil {
-		result, iErr := p.requestInterceptor(ctx, InterceptedRequest{
-			RequestID:       reqID,
-			URL:             fetchURL,
-			Method:          http.MethodGet,
-			Stage:           StageResponse,
-			StatusCode:      statusCode,
-			ResponseHeaders: respHeaders,
-			Body:            bodyBytes,
-		})
-		if iErr != nil {
-			p.emitFailed(reqID, url, now(), iErr.Error())
-			return fmt.Errorf("navigate %s: response intercept: %w", url, iErr)
-		}
-		if result != nil {
-			switch result.Action {
-			case InterceptFail:
-				reason := result.ErrorReason
-				if reason == "" {
-					reason = "BlockedByClient"
-				}
-				p.emitFailed(reqID, url, now(), reason)
-				return fmt.Errorf("navigate %s: blocked by client (%s)", url, reason)
-			case InterceptFulfill:
-				return p.handleFulfill(reqID, url, now, result)
-			case InterceptContinue:
-				if result.RespStatusCode > 0 {
-					statusCode = result.RespStatusCode
-				}
-				if result.RespHeaders != nil {
-					for k, v := range result.RespHeaders {
-						respHeaders.Set(k, v)
-					}
-				}
-			}
-		}
-	}
-
-	p.emit(NetworkEvent{
-		Type:        NetworkResponseReceived,
-		RequestID:   reqID,
-		URL:         respURL,
-		Timestamp:   now(),
-		StatusCode:  statusCode,
-		StatusText:  http.StatusText(statusCode),
-		MimeType:    mimeType,
-		RespHeaders: respHeaders,
-	})
-
-	p.emit(NetworkEvent{
-		Type:              NetworkLoadingFinished,
-		RequestID:         reqID,
-		Timestamp:         now(),
-		EncodedDataLength: int64(len(bodyBytes)),
-		Body:              bodyBytes,
-	})
-
-	doc, err := html.Parse(bytes.NewReader(bodyBytes))
-	if err != nil {
-		return fmt.Errorf("navigate parse %s: %w", url, err)
-	}
-
-	doc.SetQueryEngine(css.NewEngine())
-	p.doc = doc
-	p.url = url
 	return nil
+}
+
+// IsClosed returns whether this page has been closed.
+func (p *Page) IsClosed() bool {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.closed
 }
 
 func (p *Page) emit(evt NetworkEvent) {
@@ -265,16 +182,22 @@ func (p *Page) SetRequestInterceptor(i RequestInterceptor) {
 
 // Document returns the current DOM Document, or nil if no page is loaded.
 func (p *Page) Document() *dom.Document {
+	p.mu.Lock()
+	defer p.mu.Unlock()
 	return p.doc
 }
 
 // URL returns the URL of the currently loaded page.
 func (p *Page) URL() string {
+	p.mu.Lock()
+	defer p.mu.Unlock()
 	return p.url
 }
 
 // VM returns the JavaScript VM, creating one if needed.
 func (p *Page) VM() *js.VM {
+	p.mu.Lock()
+	defer p.mu.Unlock()
 	if p.vm == nil {
 		p.vm = js.New(p.vmOptions...)
 		if p.doc != nil {

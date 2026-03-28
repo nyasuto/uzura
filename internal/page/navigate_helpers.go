@@ -4,11 +4,162 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"net/http"
+	"time"
 
 	"github.com/nyasuto/uzura/internal/css"
 	"github.com/nyasuto/uzura/internal/html"
+	"github.com/nyasuto/uzura/internal/network"
 )
+
+// Navigate loads the document at the given URL.
+// It performs: robots check → fetch → decode → parse → DOM construction.
+func (p *Page) Navigate(ctx context.Context, url string) error {
+	p.mu.Lock()
+	if p.closed {
+		p.mu.Unlock()
+		return ErrPageClosed
+	}
+	p.mu.Unlock()
+
+	reqID := fmt.Sprintf("req-%d", requestCounter.Add(1))
+	now := nowFunc()
+
+	p.emit(NetworkEvent{
+		Type:      NetworkRequestWillBeSent,
+		RequestID: reqID,
+		URL:       url,
+		Method:    http.MethodGet,
+		Timestamp: now(),
+	})
+
+	fetchURL := url
+	var headerOverrides http.Header
+
+	// Request interception hook.
+	if p.requestInterceptor != nil {
+		result, iErr := p.requestInterceptor(ctx, InterceptedRequest{
+			RequestID: reqID,
+			URL:       url,
+			Method:    http.MethodGet,
+			Stage:     StageRequest,
+		})
+		if iErr != nil {
+			p.emitFailed(reqID, url, now(), iErr.Error())
+			return fmt.Errorf("navigate %s: intercept: %w", url, iErr)
+		}
+		if result != nil {
+			switch result.Action {
+			case InterceptFail:
+				reason := result.ErrorReason
+				if reason == "" {
+					reason = "BlockedByClient"
+				}
+				p.emitFailed(reqID, url, now(), reason)
+				return fmt.Errorf("navigate %s: blocked by client (%s)", url, reason)
+			case InterceptFulfill:
+				return p.handleFulfill(reqID, url, now, result)
+			case InterceptContinue:
+				if result.URL != "" {
+					fetchURL = result.URL
+				}
+				if result.Headers != nil {
+					headerOverrides = result.Headers
+				}
+			}
+		}
+	}
+
+	resp, err := p.fetchWithOverrides(ctx, fetchURL, headerOverrides)
+	if err != nil {
+		p.emitFailed(reqID, url, now(), err.Error())
+		return fmt.Errorf("navigate %s: %w", url, err)
+	}
+	defer resp.Body.Close()
+
+	statusCode := resp.StatusCode
+	respHeaders := resp.Header
+	respURL := resp.Request.URL.String()
+	mimeType := mimeFromResponse(resp)
+
+	reader, err := network.DecodeResponse(resp)
+	if err != nil {
+		return fmt.Errorf("navigate decode %s: %w", url, err)
+	}
+	bodyBytes, err := io.ReadAll(reader)
+	if err != nil {
+		return fmt.Errorf("navigate read %s: %w", url, err)
+	}
+
+	// Response-stage interception.
+	if p.requestInterceptor != nil {
+		result, iErr := p.requestInterceptor(ctx, InterceptedRequest{
+			RequestID:       reqID,
+			URL:             fetchURL,
+			Method:          http.MethodGet,
+			Stage:           StageResponse,
+			StatusCode:      statusCode,
+			ResponseHeaders: respHeaders,
+			Body:            bodyBytes,
+		})
+		if iErr != nil {
+			p.emitFailed(reqID, url, now(), iErr.Error())
+			return fmt.Errorf("navigate %s: response intercept: %w", url, iErr)
+		}
+		if result != nil {
+			switch result.Action {
+			case InterceptFail:
+				reason := result.ErrorReason
+				if reason == "" {
+					reason = "BlockedByClient"
+				}
+				p.emitFailed(reqID, url, now(), reason)
+				return fmt.Errorf("navigate %s: blocked by client (%s)", url, reason)
+			case InterceptFulfill:
+				return p.handleFulfill(reqID, url, now, result)
+			case InterceptContinue:
+				if result.RespStatusCode > 0 {
+					statusCode = result.RespStatusCode
+				}
+				if result.RespHeaders != nil {
+					for k, v := range result.RespHeaders {
+						respHeaders.Set(k, v)
+					}
+				}
+			}
+		}
+	}
+
+	p.emit(NetworkEvent{
+		Type:        NetworkResponseReceived,
+		RequestID:   reqID,
+		URL:         respURL,
+		Timestamp:   now(),
+		StatusCode:  statusCode,
+		StatusText:  http.StatusText(statusCode),
+		MimeType:    mimeType,
+		RespHeaders: respHeaders,
+	})
+
+	p.emit(NetworkEvent{
+		Type:              NetworkLoadingFinished,
+		RequestID:         reqID,
+		Timestamp:         now(),
+		EncodedDataLength: int64(len(bodyBytes)),
+		Body:              bodyBytes,
+	})
+
+	doc, err := html.Parse(bytes.NewReader(bodyBytes))
+	if err != nil {
+		return fmt.Errorf("navigate parse %s: %w", url, err)
+	}
+
+	doc.SetQueryEngine(css.NewEngine())
+	p.doc = doc
+	p.url = url
+	return nil
+}
 
 func (p *Page) emitFailed(reqID, url string, ts float64, errText string) {
 	p.emit(NetworkEvent{
@@ -77,4 +228,10 @@ func mimeFromResponse(resp *http.Response) string {
 		_ = i
 	}
 	return ct
+}
+
+func nowFunc() func() float64 {
+	return func() float64 {
+		return float64(time.Now().UnixMilli()) / 1000.0
+	}
 }

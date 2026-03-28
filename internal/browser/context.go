@@ -54,8 +54,22 @@ func (c *BrowserContext) NewPage() (*page.Page, error) {
 	p := page.New(&page.Options{
 		Fetcher: c.fetcher,
 	})
+	p.SetCloseObserver(func(_ *page.Page) {
+		c.removePage(p)
+	})
 	c.pages = append(c.pages, p)
 	return p, nil
+}
+
+func (c *BrowserContext) removePage(p *page.Page) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	for i, pg := range c.pages {
+		if pg == p {
+			c.pages = append(c.pages[:i], c.pages[i+1:]...)
+			return
+		}
+	}
 }
 
 // Pages returns all active pages in this context.
@@ -82,13 +96,19 @@ func (c *BrowserContext) Close() error {
 
 func (c *BrowserContext) closeInternal() {
 	c.mu.Lock()
-	defer c.mu.Unlock()
-
 	if c.closed {
+		c.mu.Unlock()
 		return
 	}
 	c.closed = true
+	pages := make([]*page.Page, len(c.pages))
+	copy(pages, c.pages)
 	c.pages = nil
+	c.mu.Unlock()
+
+	for _, p := range pages {
+		_ = p.Close()
+	}
 }
 
 // Browser returns the parent Browser.
