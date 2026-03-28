@@ -28,9 +28,16 @@ type Node interface {
 	AppendChild(child Node) Node
 	RemoveChild(child Node) Node
 	InsertBefore(newChild, refChild Node) Node
+	ReplaceChild(newChild, oldChild Node) Node
+	CloneNode(deep bool) Node
 	TextContent() string
 	SetTextContent(text string)
 	OwnerDocument() *Document
+	Contains(other Node) bool
+	HasChildNodes() bool
+	Normalize()
+	IsEqualNode(other Node) bool
+	IsSameNode(other Node) bool
 
 	// unexported methods for internal tree manipulation
 	setParent(parent Node)
@@ -146,6 +153,91 @@ func (b *baseNode) removeChild(child Node) Node {
 	child.setPreviousSibling(nil)
 	child.setNextSibling(nil)
 	return child
+}
+
+// replaceChild replaces oldChild with newChild in this node's children.
+func (b *baseNode) replaceChild(self, newChild, oldChild Node) Node {
+	// Detach newChild from its current parent
+	if p := newChild.ParentNode(); p != nil {
+		p.RemoveChild(newChild)
+	}
+
+	newChild.setParent(self)
+	prev := oldChild.PreviousSibling()
+	next := oldChild.NextSibling()
+
+	newChild.setPreviousSibling(prev)
+	newChild.setNextSibling(next)
+
+	if prev != nil {
+		prev.setNextSibling(newChild)
+	} else {
+		b.firstChild = newChild
+	}
+
+	if next != nil {
+		next.setPreviousSibling(newChild)
+	} else {
+		b.lastChild = newChild
+	}
+
+	oldChild.setParent(nil)
+	oldChild.setPreviousSibling(nil)
+	oldChild.setNextSibling(nil)
+	return oldChild
+}
+
+// contains reports whether other is a descendant of this node or is this node itself.
+func (b *baseNode) contains(self, other Node) bool {
+	if other == nil {
+		return false
+	}
+	if self == other {
+		return true
+	}
+	for c := b.firstChild; c != nil; c = c.NextSibling() {
+		if c.Contains(other) {
+			return true
+		}
+	}
+	return false
+}
+
+// hasChildNodes reports whether this node has any children.
+func (b *baseNode) hasChildNodes() bool {
+	return b.firstChild != nil
+}
+
+// normalize merges adjacent Text nodes and removes empty Text nodes.
+func (b *baseNode) normalize(self Node) {
+	var next Node
+	for c := b.firstChild; c != nil; c = next {
+		next = c.NextSibling()
+		if t, ok := c.(*Text); ok {
+			if t.Data == "" {
+				self.RemoveChild(c)
+				continue
+			}
+			// Merge consecutive text nodes
+			for next != nil {
+				nextText, ok := next.(*Text)
+				if !ok {
+					break
+				}
+				t.Data += nextText.Data
+				afterNext := next.NextSibling()
+				self.RemoveChild(next)
+				next = afterNext
+			}
+		} else {
+			c.Normalize()
+		}
+	}
+}
+
+// isSameNode reports whether other is the exact same node (identity check).
+func (b *baseNode) isSameNode(self, other Node) bool {
+	return self == other
 }
 
 // insertBefore inserts newChild before refChild. If refChild is nil, appends.

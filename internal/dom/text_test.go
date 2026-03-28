@@ -40,7 +40,7 @@ func TestTextSetContent(t *testing.T) {
 
 func TestTextCloneNode(t *testing.T) {
 	original := NewText("hello")
-	clone := original.CloneNode()
+	clone := original.CloneNode(false).(*Text)
 
 	if clone.Data != original.Data {
 		t.Errorf("clone.Data = %q, want %q", clone.Data, original.Data)
@@ -92,7 +92,7 @@ func TestCommentSetContent(t *testing.T) {
 
 func TestCommentCloneNode(t *testing.T) {
 	original := NewComment("hello")
-	clone := original.CloneNode()
+	clone := original.CloneNode(false).(*Comment)
 
 	if clone.Data != original.Data {
 		t.Errorf("clone.Data = %q, want %q", clone.Data, original.Data)

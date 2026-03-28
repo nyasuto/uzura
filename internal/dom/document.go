@@ -37,6 +37,48 @@ func (d *Document) InsertBefore(newChild, refChild Node) Node {
 	return d.insertBefore(d, newChild, refChild)
 }
 
+// ReplaceChild replaces oldChild with newChild. Returns oldChild.
+func (d *Document) ReplaceChild(newChild, oldChild Node) Node {
+	return d.replaceChild(d, newChild, oldChild)
+}
+
+// CloneNode returns a copy of this document. If deep is true, all descendants are also cloned.
+func (d *Document) CloneNode(deep bool) Node {
+	clone := NewDocument()
+	if deep {
+		for c := d.firstChild; c != nil; c = c.NextSibling() {
+			child := c.CloneNode(true)
+			clone.AppendChild(child)
+		}
+	}
+	return clone
+}
+
+// Contains reports whether other is a descendant of this document (or is itself).
+func (d *Document) Contains(other Node) bool {
+	return d.contains(d, other)
+}
+
+// HasChildNodes reports whether this document has any children.
+func (d *Document) HasChildNodes() bool {
+	return d.hasChildNodes()
+}
+
+// Normalize merges adjacent Text nodes and removes empty Text nodes.
+func (d *Document) Normalize() {
+	d.normalize(d)
+}
+
+// IsEqualNode reports whether other is structurally equal to this document.
+func (d *Document) IsEqualNode(other Node) bool {
+	return isEqualNode(d, other)
+}
+
+// IsSameNode reports whether other is the exact same node reference.
+func (d *Document) IsSameNode(other Node) bool {
+	return d.isSameNode(d, other)
+}
+
 // TextContent for Document always returns empty string per spec.
 func (d *Document) TextContent() string {
 	return ""

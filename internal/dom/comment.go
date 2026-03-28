@@ -46,7 +46,38 @@ func (c *Comment) SetTextContent(text string) {
 	c.Data = text
 }
 
-// CloneNode returns a shallow copy of this Comment.
-func (c *Comment) CloneNode() *Comment {
-	return NewComment(c.Data)
+// CloneNode returns a copy of this Comment node. The deep parameter is accepted
+// for interface compliance but has no effect since Comment nodes have no children.
+func (c *Comment) CloneNode(deep bool) Node {
+	clone := NewComment(c.Data)
+	clone.ownerDocument = c.ownerDocument
+	return clone
+}
+
+// ReplaceChild is not supported for Comment nodes; returns nil.
+func (c *Comment) ReplaceChild(newChild, oldChild Node) Node {
+	return nil
+}
+
+// Contains reports whether other is this same node (Comment cannot have children).
+func (c *Comment) Contains(other Node) bool {
+	return Node(c) == other
+}
+
+// HasChildNodes always returns false for Comment nodes.
+func (c *Comment) HasChildNodes() bool {
+	return false
+}
+
+// Normalize is a no-op for Comment nodes.
+func (c *Comment) Normalize() {}
+
+// IsEqualNode reports whether other is a Comment node with the same data.
+func (c *Comment) IsEqualNode(other Node) bool {
+	return isEqualNode(c, other)
+}
+
+// IsSameNode reports whether other is the exact same node reference.
+func (c *Comment) IsSameNode(other Node) bool {
+	return Node(c) == other
 }

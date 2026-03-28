@@ -177,3 +177,28 @@
 ### Phase 3 Status: COMPLETE ✅
 
 ---
+
+## Phase 4: DOM API（Web標準準拠）
+
+- [x] Node: appendChild, removeChild, insertBefore, cloneNode（Phase 1で基本実装済み、拡張）
+- [ ] Element: classList, dataset, innerHTML setter（パーサー連携）
+- [ ] Document: createDocumentFragment, importNode
+- [ ] MutationObserver 基本実装
+- [ ] WPT `dom/nodes/` テストのパス
+
+---
+
+
+
+## Phase 5: JavaScript Execution（Goja統合）
+
+- [ ] `github.com/dop251/goja` 依存追加
+- [ ] Goja VMの初期化とサンドボックス
+- [ ] `document` オブジェクトのJSバインディング
+- [ ] `window`, `globalThis`, `console` の実装
+- [ ] `setTimeout` / `setInterval`
+- [ ] addEventListener / removeEventListener
+- [ ] `<script>` タグのパースと実行順序
+- [ ] WPT `dom/events/` テストのパス
+
+---

@@ -117,6 +117,55 @@ func (e *Element) InsertBefore(newChild, refChild Node) Node {
 	return e.insertBefore(e, newChild, refChild)
 }
 
+// ReplaceChild replaces oldChild with newChild. Returns oldChild.
+func (e *Element) ReplaceChild(newChild, oldChild Node) Node {
+	return e.replaceChild(e, newChild, oldChild)
+}
+
+// CloneNode returns a copy of this element. If deep is true, all descendants are also cloned.
+func (e *Element) CloneNode(deep bool) Node {
+	clone := NewElement(e.localName)
+	clone.ownerDocument = e.ownerDocument
+	for _, a := range e.attributes {
+		clone.attributes = append(clone.attributes, html.Attribute{
+			Namespace: a.Namespace,
+			Key:       a.Key,
+			Val:       a.Val,
+		})
+	}
+	if deep {
+		for c := e.firstChild; c != nil; c = c.NextSibling() {
+			clone.AppendChild(c.CloneNode(true))
+		}
+	}
+	return clone
+}
+
+// Contains reports whether other is a descendant of this element (or is itself).
+func (e *Element) Contains(other Node) bool {
+	return e.contains(e, other)
+}
+
+// HasChildNodes reports whether this element has any children.
+func (e *Element) HasChildNodes() bool {
+	return e.hasChildNodes()
+}
+
+// Normalize merges adjacent Text nodes and removes empty Text nodes.
+func (e *Element) Normalize() {
+	e.normalize(e)
+}
+
+// IsEqualNode reports whether other is structurally equal to this element.
+func (e *Element) IsEqualNode(other Node) bool {
+	return isEqualNode(e, other)
+}
+
+// IsSameNode reports whether other is the exact same node reference.
+func (e *Element) IsSameNode(other Node) bool {
+	return e.isSameNode(e, other)
+}
+
 // TextContent returns the concatenated text content of all descendants.
 func (e *Element) TextContent() string {
 	var sb strings.Builder

@@ -13,7 +13,21 @@ go test ./... -race            # run all tests with race detector
 go test ./... -bench=.         # run benchmarks
 go vet ./...                   # static analysis
 ```
+## 外部AI相談ルール
 
+以下の状況では、gemini MCPツールを使って相談・検索すること：
+
+- デバッグで2回以上同じエラーの修正に失敗したとき
+- 最新のライブラリ仕様やAPIの変更点を確認したいとき
+- アーキテクチャの設計判断で迷ったとき（セカンドオピニオン）
+- 自分の知識に自信がないニッチな技術トピックのとき
+
+使い分け：
+- gemini-search: ウェブ検索が必要な最新情報の調査
+- gemini-query: 設計相談やセカンドオピニオン
+- gemini-brainstorm: 複数の選択肢を検討したいとき
+
+注意: 単純なコーディングや既知の問題には使わない（トークンの無駄）
 ## Architecture
 - `cmd/uzura/` — CLI entry point only. No logic here.
 - `internal/dom/` — DOM tree types (Node, Element, Text, Document)
