@@ -194,13 +194,58 @@
 
 ## Phase 5: JavaScript Execution（Goja統合）
 
+### Phase 5.1: VM基盤 + グローバルオブジェクト
 - [ ] `github.com/dop251/goja` 依存追加
-- [ ] Goja VMの初期化とサンドボックス
-- [ ] `document` オブジェクトのJSバインディング
-- [ ] `window`, `globalThis`, `console` の実装
-- [ ] `setTimeout` / `setInterval`
-- [ ] addEventListener / removeEventListener
-- [ ] `<script>` タグのパースと実行順序
+- [ ] `internal/js/vm.go` — Goja Runtime のラッパー（生成、実行、リセット）
+- [ ] サンドボックス: ファイルI/O・ネットワーク等のネイティブアクセスを遮断
+- [ ] `window` / `globalThis` オブジェクトの基本構造
+- [ ] `console.log` / `console.warn` / `console.error`（Go の io.Writer に出力）
+- [ ] テスト: JS式の評価、console出力のキャプチャ、禁止操作のエラー
+
+### Phase 5.2: Document バインディング（読み取り系）
+- [ ] `document` オブジェクトを goja に登録
+- [ ] `document.getElementById`, `document.querySelector`, `document.querySelectorAll`
+- [ ] `document.getElementsByTagName`, `document.getElementsByClassName`
+- [ ] `document.title`, `document.documentElement`, `document.head`, `document.body`
+- [ ] Element プロキシ: `tagName`, `id`, `className`, `textContent`, `innerHTML`（getter）
+- [ ] `element.getAttribute`, `element.hasAttribute`
+- [ ] `element.querySelector`, `element.querySelectorAll`, `element.matches`, `element.closest`
+- [ ] NodeList / HTMLCollection の JS 表現（length, index アクセス, forEach）
+- [ ] テスト: JS からの DOM クエリが Go 側の DOM と一致することを検証
+
+### Phase 5.3: Document バインディング（書き込み系）
+- [ ] `document.createElement`, `document.createTextNode`, `document.createDocumentFragment`
+- [ ] `element.setAttribute`, `element.removeAttribute`
+- [ ] `element.textContent` setter, `element.innerHTML` setter
+- [ ] `node.appendChild`, `node.removeChild`, `node.insertBefore`, `node.replaceChild`
+- [ ] `element.classList`（add, remove, toggle, contains）の JS バインディング
+- [ ] `element.dataset` の JS Proxy バインディング
+- [ ] テスト: JS で DOM を変更 → Go 側の DOM ツリーに反映されることを検証
+
+### Phase 5.4: イベントシステム
+- [ ] `EventTarget` インターフェース（addEventListener, removeEventListener, dispatchEvent）
+- [ ] `Event` オブジェクト（type, target, currentTarget, bubbles, cancelable, preventDefault, stopPropagation）
+- [ ] イベントバブリング・キャプチャリングの実装
+- [ ] `document`, `window`, 各 `Element` を EventTarget として登録
+- [ ] テスト: イベント発火、バブリング、preventDefault の動作検証
+
+### Phase 5.5: タイマーとイベントループ
+- [ ] イベントループの基本構造（タスクキュー + 実行サイクル）
+- [ ] `setTimeout` / `clearTimeout`
+- [ ] `setInterval` / `clearInterval`
+- [ ] Go goroutine との同期（goja は単一スレッド、タイマーコールバックはループ内で実行）
+- [ ] テスト: タイマーの順序保証、クリア動作、ネストしたタイマー
+
+### Phase 5.6: `<script>` タグ実行
+- [ ] HTML パーサーからの `<script>` タグ検出
+- [ ] インラインスクリプトの実行（document 解析順）
+- [ ] `defer` / `async` 属性のセマンティクス
+- [ ] スクリプトエラー時のハンドリング（他のスクリプトは続行）
+- [ ] テスト: 複数スクリプトの実行順序、defer/async の動作
+
+### Phase 5.7: WPT テスト + 検証
 - [ ] WPT `dom/events/` テストのパス
+- [ ] `go test ./... -race` 全パス
+- [ ] JS 実行のベンチマーク（単純スクリプト、DOM操作スクリプト）
 
 ---
