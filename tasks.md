@@ -47,11 +47,11 @@
 - [x] テスト: 基本HTML、ネストテーブル、閉じタグ欠落、空ドキュメント
 
 ### Task 1.7: DOM Serializer
-- [ ] `Serialize(node Node) string` — DOM → HTML文字列
-- [ ] void要素（`<br>`, `<img>`等）、属性エスケープ、テキストエスケープ
-- [ ] raw text要素（`<script>`, `<style>`）
-- [ ] `InnerHTML()`, `OuterHTML()`
-- [ ] ラウンドトリップテスト: parse → serialize → parse → deep-equal
+- [x] `Serialize(node Node) string` — DOM → HTML文字列
+- [x] void要素（`<br>`, `<img>`等）、属性エスケープ、テキストエスケープ
+- [x] raw text要素（`<script>`, `<style>`）
+- [x] `InnerHTML()`, `OuterHTML()`
+- [x] ラウンドトリップテスト: parse → serialize → parse → deep-equal
 
 ### Task 1.8: CLI `parse` コマンド仕上げ
 - [ ] stdin / ファイル入力対応
