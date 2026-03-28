@@ -61,7 +61,7 @@
 - [x] stderr/stdoutの分離、終了コード
 
 ### Task 1.9: Phase 1 検証
-- [ ] `go test ./... -race` 全パス
-- [ ] `go vet ./...` クリーン
-- [ ] ベンチマーク: 100KB HTML を 50ms以内でパース
-- [ ] `curl -s https://example.com | ./uzura parse` 動作確認
+- [x] `go test ./... -race` 全パス
+- [x] `go vet ./...` クリーン
+- [x] ベンチマーク: 100KB HTML を 50ms以内でパース（実測: ~0.8ms）
+- [x] `curl -s https://example.com | ./uzura parse` 動作確認
