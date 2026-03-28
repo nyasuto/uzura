@@ -11,7 +11,7 @@ Uzura is a minimal headless browser in Go, optimized for AI agents.
 go build ./cmd/uzura          # build binary
 go test ./... -race            # run all tests with race detector
 go test ./... -bench=.         # run benchmarks
-go vet ./...                   # static analysis
+golangci-lint run              # lint (includes vet)
 ```
 ## 外部AI相談ルール
 

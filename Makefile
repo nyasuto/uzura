@@ -21,17 +21,9 @@ fmt: ## Format code with gofmt and goimports
 		echo "goimports not found, skipping"; \
 	fi
 
-.PHONY: vet
-vet: ## Run go vet
-	go vet ./...
-
 .PHONY: lint
-lint: ## Run golangci-lint (skips if not installed)
-	@if command -v golangci-lint >/dev/null 2>&1; then \
-		golangci-lint run; \
-	else \
-		echo "golangci-lint not found, skipping"; \
-	fi
+lint: ## Run golangci-lint
+	golangci-lint run
 
 .PHONY: test
 test: ## Run all tests with race detector
@@ -42,7 +34,7 @@ bench: ## Run benchmarks
 	go test ./... -bench=. -benchmem
 
 .PHONY: quality
-quality: fmt vet lint test ## Run fmt + vet + lint + test
+quality: fmt lint test ## Run fmt + lint + test
 
 ## Coverage
 
