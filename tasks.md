@@ -9,13 +9,13 @@
 - [x] `uzura version` でバージョン出力
 
 ### Task 1.2: Node Interface and Base Types
-- [ ] `NodeType` 定数を定義（ElementNode, TextNode, CommentNode, DocumentNode）
-- [ ] `Node` インターフェースをWHATWG準拠で定義
-- [ ] `baseNode` 構造体（parent/child/sibling管理）を実装
-- [ ] `AppendChild` — 旧親からの切り離しを含む
-- [ ] `RemoveChild` — sibling ポインタ更新を含む
-- [ ] `InsertBefore` — nil ref = appendのエッジケース
-- [ ] テーブル駆動テストで全ツリー操作を検証
+- [x] `NodeType` 定数を定義（ElementNode, TextNode, CommentNode, DocumentNode）
+- [x] `Node` インターフェースをWHATWG準拠で定義
+- [x] `baseNode` 構造体（parent/child/sibling管理）を実装
+- [x] `AppendChild` — 旧親からの切り離しを含む
+- [x] `RemoveChild` — sibling ポインタ更新を含む
+- [x] `InsertBefore` — nil ref = appendのエッジケース
+- [x] テーブル駆動テストで全ツリー操作を検証
 
 ### Task 1.3: Text and Comment Nodes
 - [ ] `Text` 構造体（`baseNode` 埋め込み）
