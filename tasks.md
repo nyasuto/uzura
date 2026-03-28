@@ -54,11 +54,11 @@
 - [x] ラウンドトリップテスト: parse → serialize → parse → deep-equal
 
 ### Task 1.8: CLI `parse` コマンド仕上げ
-- [ ] stdin / ファイル入力対応
-- [ ] `--format text` インデント付きツリー表示（デフォルト）
-- [ ] `--format json` JSON構造
-- [ ] `--format html` 再シリアライズHTML
-- [ ] stderr/stdoutの分離、終了コード
+- [x] stdin / ファイル入力対応
+- [x] `--format text` インデント付きツリー表示（デフォルト）
+- [x] `--format json` JSON構造
+- [x] `--format html` 再シリアライズHTML
+- [x] stderr/stdoutの分離、終了コード
 
 ### Task 1.9: Phase 1 検証
 - [ ] `go test ./... -race` 全パス
