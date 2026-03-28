@@ -1,14 +1,15 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
-	"time"
 
 	"github.com/nyasuto/uzura/internal/dom"
 	"github.com/nyasuto/uzura/internal/network"
+	"github.com/nyasuto/uzura/internal/page"
 )
 
 func runFetch() error {
@@ -26,24 +27,26 @@ func runFetch() error {
 	}
 	url := fs.Arg(0)
 
-	opts := &network.FetcherOptions{
-		UserAgent:     *userAgent,
-		Timeout:       *timeout,
-		EnableCookies: true,
-		ObeyRobots:    *obeyRobots,
-	}
-
 	// Validate timeout
 	if *timeout <= 0 {
 		return fmt.Errorf("timeout must be positive")
 	}
-	_ = time.Second // ensure time is used
 
-	f := network.NewFetcher(opts)
-	doc, err := f.LoadDocument(url)
-	if err != nil {
+	f := network.NewFetcher(&network.FetcherOptions{
+		UserAgent:     *userAgent,
+		Timeout:       *timeout,
+		EnableCookies: true,
+		ObeyRobots:    *obeyRobots,
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), *timeout)
+	defer cancel()
+
+	pg := page.New(&page.Options{Fetcher: f})
+	if err := pg.Navigate(ctx, url); err != nil {
 		return err
 	}
+	doc := pg.Document()
 
 	switch *format {
 	case "text":

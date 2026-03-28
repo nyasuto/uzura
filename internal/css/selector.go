@@ -2,8 +2,11 @@
 package css
 
 import (
+	"fmt"
+
 	"github.com/andybalholm/cascadia"
 	"github.com/nyasuto/uzura/internal/dom"
+	uzerr "github.com/nyasuto/uzura/internal/errors"
 	"golang.org/x/net/html"
 	"golang.org/x/net/html/atom"
 )
@@ -48,7 +51,7 @@ type Selector struct {
 func Compile(sel string) (*Selector, error) {
 	compiled, err := cascadia.Compile(sel)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w: %v", uzerr.ErrInvalidSelector, err)
 	}
 	return &Selector{sel: compiled}, nil
 }
@@ -103,7 +106,7 @@ func (s *Selector) Query(root dom.Node) *dom.Element {
 func Matches(elem *dom.Element, sel string) (bool, error) {
 	compiled, err := cascadia.Compile(sel)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("%w: %v", uzerr.ErrInvalidSelector, err)
 	}
 	nodeMap := make(map[*html.Node]*dom.Element)
 	// Build the full tree from the element's owner document or from the element
@@ -126,7 +129,7 @@ func Matches(elem *dom.Element, sel string) (bool, error) {
 func Closest(elem *dom.Element, sel string) (*dom.Element, error) {
 	compiled, err := cascadia.Compile(sel)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w: %v", uzerr.ErrInvalidSelector, err)
 	}
 	nodeMap := make(map[*html.Node]*dom.Element)
 	var root dom.Node = elem

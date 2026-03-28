@@ -7,6 +7,8 @@ import (
 	"net/url"
 	"strings"
 	"sync"
+
+	uzerr "github.com/nyasuto/uzura/internal/errors"
 )
 
 // robotsCache caches parsed robots.txt rules per host.
@@ -41,7 +43,7 @@ func (f *Fetcher) checkRobots(targetURL string) error {
 	}
 
 	if rules.isDisallowed(f.userAgent, parsed.Path) {
-		return fmt.Errorf("blocked by robots.txt: %s", targetURL)
+		return fmt.Errorf("%w: %s", uzerr.ErrRobotsDisallowed, targetURL)
 	}
 	return nil
 }

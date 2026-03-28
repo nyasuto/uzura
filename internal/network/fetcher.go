@@ -2,10 +2,13 @@
 package network
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/http/cookiejar"
 	"time"
+
+	uzerr "github.com/nyasuto/uzura/internal/errors"
 )
 
 const (
@@ -56,7 +59,7 @@ func NewFetcher(opts *FetcherOptions) *Fetcher {
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			redirectCount++
 			if redirectCount > MaxRedirects {
-				return fmt.Errorf("stopped after %d redirects", MaxRedirects)
+				return fmt.Errorf("%w: stopped after %d", uzerr.ErrTooManyRedirects, MaxRedirects)
 			}
 			return nil
 		},
@@ -83,7 +86,13 @@ func NewFetcher(opts *FetcherOptions) *Fetcher {
 // Fetch retrieves the resource at the given URL.
 // The caller must close the response body.
 func (f *Fetcher) Fetch(url string) (*http.Response, error) {
-	req, err := http.NewRequest(http.MethodGet, url, http.NoBody)
+	return f.FetchContext(context.Background(), url)
+}
+
+// FetchContext retrieves the resource at the given URL with context support.
+// The caller must close the response body.
+func (f *Fetcher) FetchContext(ctx context.Context, url string) (*http.Response, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("creating request: %w", err)
 	}
