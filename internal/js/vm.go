@@ -15,6 +15,7 @@ import (
 type VM struct {
 	runtime *goja.Runtime
 	writer  io.Writer
+	loop    *eventLoop
 }
 
 // Option configures a VM.
@@ -43,6 +44,7 @@ func (vm *VM) init() {
 	vm.runtime = goja.New()
 	vm.setupGlobals()
 	vm.setupConsole()
+	vm.setupTimers()
 }
 
 func (vm *VM) setupGlobals() {
