@@ -182,7 +182,7 @@
 
 - [x] Node: appendChild, removeChild, insertBefore, cloneNode（Phase 1で基本実装済み、拡張）
 - [x] Element: classList, dataset, innerHTML setter（パーサー連携）
-- [ ] Document: createDocumentFragment, importNode
+- [x] Document: createDocumentFragment, importNode
 - [ ] MutationObserver 基本実装
 - [ ] WPT `dom/nodes/` テストのパス
 

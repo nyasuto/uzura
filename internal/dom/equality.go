@@ -53,6 +53,10 @@ func isEqualNode(a, b Node) bool {
 		if _, ok := b.(*Document); !ok {
 			return false
 		}
+	case *DocumentFragment:
+		if _, ok := b.(*DocumentFragment); !ok {
+			return false
+		}
 	}
 
 	// Compare children

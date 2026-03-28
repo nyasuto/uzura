@@ -13,6 +13,8 @@ const (
 	CommentNode NodeType = 8
 	// DocumentNode represents a Document node.
 	DocumentNode NodeType = 9
+	// DocumentFragmentNode represents a DocumentFragment node.
+	DocumentFragmentNode NodeType = 11
 )
 
 // Node is the base interface for all DOM nodes.
@@ -112,14 +114,27 @@ func (b *baseNode) setOwnerDocument(doc *Document) {
 }
 
 // appendChild adds child to the end of this node's children list.
-// It detaches child from its current parent first.
-// Returns the appended child.
+// If child is a DocumentFragment, its children are moved instead.
+// Returns the appended child (or the fragment).
 func (b *baseNode) appendChild(self, child Node) Node {
-	// Detach from old parent
+	if frag, ok := child.(*DocumentFragment); ok {
+		for c := frag.firstChild; c != nil; {
+			next := c.NextSibling()
+			frag.removeChild(c)
+			b.appendSingleChild(self, c)
+			c = next
+		}
+		return child
+	}
+	b.appendSingleChild(self, child)
+	return child
+}
+
+// appendSingleChild appends a single (non-fragment) child.
+func (b *baseNode) appendSingleChild(self, child Node) {
 	if p := child.ParentNode(); p != nil {
 		p.RemoveChild(child)
 	}
-
 	child.setParent(self)
 	if b.firstChild == nil {
 		b.firstChild = child
@@ -128,7 +143,6 @@ func (b *baseNode) appendChild(self, child Node) Node {
 		child.setPreviousSibling(b.lastChild)
 	}
 	b.lastChild = child
-	return child
 }
 
 // removeChild removes child from this node's children list.
@@ -156,8 +170,24 @@ func (b *baseNode) removeChild(child Node) Node {
 }
 
 // replaceChild replaces oldChild with newChild in this node's children.
+// If newChild is a DocumentFragment, oldChild is replaced by the fragment's children.
 func (b *baseNode) replaceChild(self, newChild, oldChild Node) Node {
-	// Detach newChild from its current parent
+	if frag, ok := newChild.(*DocumentFragment); ok {
+		ref := oldChild.NextSibling()
+		b.removeChild(oldChild)
+		for c := frag.firstChild; c != nil; {
+			next := c.NextSibling()
+			frag.removeChild(c)
+			if ref != nil {
+				b.insertSingleBefore(self, c, ref)
+			} else {
+				b.appendSingleChild(self, c)
+			}
+			c = next
+		}
+		return oldChild
+	}
+
 	if p := newChild.ParentNode(); p != nil {
 		p.RemoveChild(newChild)
 	}
@@ -241,12 +271,28 @@ func (b *baseNode) isSameNode(self, other Node) bool {
 }
 
 // insertBefore inserts newChild before refChild. If refChild is nil, appends.
+// If newChild is a DocumentFragment, its children are inserted instead.
 func (b *baseNode) insertBefore(self, newChild, refChild Node) Node {
 	if refChild == nil {
 		return b.appendChild(self, newChild)
 	}
 
-	// Detach from old parent
+	if frag, ok := newChild.(*DocumentFragment); ok {
+		for c := frag.firstChild; c != nil; {
+			next := c.NextSibling()
+			frag.removeChild(c)
+			b.insertSingleBefore(self, c, refChild)
+			c = next
+		}
+		return newChild
+	}
+
+	b.insertSingleBefore(self, newChild, refChild)
+	return newChild
+}
+
+// insertSingleBefore inserts a single (non-fragment) node before refChild.
+func (b *baseNode) insertSingleBefore(self, newChild, refChild Node) {
 	if p := newChild.ParentNode(); p != nil {
 		p.RemoveChild(newChild)
 	}
@@ -262,6 +308,4 @@ func (b *baseNode) insertBefore(self, newChild, refChild Node) Node {
 	} else {
 		b.firstChild = newChild
 	}
-
-	return newChild
 }

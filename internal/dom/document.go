@@ -128,6 +128,22 @@ func (d *Document) Title() string {
 	return title.TextContent()
 }
 
+// CreateDocumentFragment creates a new empty DocumentFragment owned by this document.
+func (d *Document) CreateDocumentFragment() *DocumentFragment {
+	f := NewDocumentFragment()
+	f.setOwnerDocument(d)
+	return f
+}
+
+// ImportNode returns a copy of a node from another document, suitable for insertion.
+// If deep is true, the entire subtree is cloned. The ownerDocument of the result
+// is set to this document.
+func (d *Document) ImportNode(node Node, deep bool) Node {
+	clone := node.CloneNode(deep)
+	setOwnerDocumentRecursive(clone, d)
+	return clone
+}
+
 // CreateElement creates a new Element with the given tag name, owned by this document.
 func (d *Document) CreateElement(tagName string) *Element {
 	e := NewElement(tagName)
@@ -231,6 +247,13 @@ func collectElementsByClassName(n Node, classes []string, result *[]*Element) {
 			}
 			collectElementsByClassName(e, classes, result)
 		}
+	}
+}
+
+func setOwnerDocumentRecursive(n Node, doc *Document) {
+	n.setOwnerDocument(doc)
+	for c := n.FirstChild(); c != nil; c = c.NextSibling() {
+		setOwnerDocumentRecursive(c, doc)
 	}
 }
 

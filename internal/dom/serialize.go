@@ -28,6 +28,8 @@ func serializeNode(sb *strings.Builder, n Node) {
 	switch v := n.(type) {
 	case *Document:
 		serializeChildren(sb, v)
+	case *DocumentFragment:
+		serializeChildren(sb, v)
 	case *Element:
 		serializeElement(sb, v)
 	case *Text:
