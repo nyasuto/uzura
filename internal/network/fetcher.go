@@ -11,6 +11,9 @@ import (
 	uzerr "github.com/nyasuto/uzura/internal/errors"
 )
 
+// CookieJar is the interface for cookie storage, matching http.CookieJar.
+type CookieJar = http.CookieJar
+
 const (
 	// DefaultUserAgent is the default User-Agent header sent with requests.
 	DefaultUserAgent = "Uzura/0.1 (+https://github.com/nyasuto/uzura)"
@@ -28,6 +31,9 @@ type FetcherOptions struct {
 	Timeout       time.Duration
 	EnableCookies bool
 	ObeyRobots    bool
+	// CookieJar provides an external cookie jar. When set, EnableCookies is
+	// ignored and this jar is used directly.
+	CookieJar CookieJar
 }
 
 // Fetcher performs HTTP requests with redirect tracking and timeouts.
@@ -65,7 +71,9 @@ func NewFetcher(opts *FetcherOptions) *Fetcher {
 		},
 	}
 
-	if opts != nil && opts.EnableCookies {
+	if opts != nil && opts.CookieJar != nil {
+		client.Jar = opts.CookieJar
+	} else if opts != nil && opts.EnableCookies {
 		jar, _ := cookiejar.New(nil)
 		client.Jar = jar
 	}
