@@ -58,15 +58,72 @@ func (d *PageDomain) navigate(sess *Session, params json.RawMessage) (json.RawMe
 
 	// Navigation succeeded — build lifecycle events to send after response.
 	ts := float64(time.Now().UnixMilli()) / 1000.0
+
+	url := d.page.URL()
+	title := ""
+	if doc := d.page.Document(); doc != nil {
+		title = doc.Title()
+	}
+
+	initData, _ := json.Marshal(map[string]interface{}{
+		"frameId":   frameID,
+		"loaderId":  "loader-1",
+		"name":      "init",
+		"timestamp": ts,
+	})
+	ctxCreatedData, _ := json.Marshal(map[string]interface{}{
+		"context": map[string]interface{}{
+			"id":     1,
+			"origin": url,
+			"name":   "",
+			"auxData": map[string]interface{}{
+				"isDefault": true,
+				"type":      "default",
+				"frameId":   frameID,
+			},
+		},
+	})
+
+	frameNavigatedData, _ := json.Marshal(map[string]interface{}{
+		"frame": map[string]interface{}{
+			"id":             frameID,
+			"loaderId":       "loader-1",
+			"url":            url,
+			"securityOrigin": url,
+			"mimeType":       "text/html",
+			"name":           title,
+		},
+		"type": "Navigation",
+	})
+	dclData, _ := json.Marshal(map[string]interface{}{
+		"frameId":   frameID,
+		"loaderId":  "loader-1",
+		"name":      "DOMContentLoaded",
+		"timestamp": ts,
+	})
+	loadData, _ := json.Marshal(map[string]interface{}{
+		"frameId":   frameID,
+		"loaderId":  "loader-1",
+		"name":      "load",
+		"timestamp": ts,
+	})
 	tsData, _ := json.Marshal(map[string]interface{}{"timestamp": ts})
+	stoppedData, _ := json.Marshal(map[string]interface{}{"frameId": frameID})
 
 	events := []Event{
+		{Method: "Page.lifecycleEvent", Params: initData},
+		{Method: "Page.frameNavigated", Params: frameNavigatedData},
+		{Method: "Runtime.executionContextCreated", Params: ctxCreatedData},
+		{Method: "Page.lifecycleEvent", Params: dclData},
 		{Method: "Page.domContentEventFired", Params: tsData},
+		{Method: "Page.lifecycleEvent", Params: loadData},
 		{Method: "Page.loadEventFired", Params: tsData},
+		{Method: "Page.frameStoppedLoading", Params: stoppedData},
 	}
 
 	r, merr := json.Marshal(map[string]interface{}{
-		"frameId": frameID,
+		"frameId":  frameID,
+		"loaderId": "loader-1",
 	})
 	return r, events, merr
 }

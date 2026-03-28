@@ -44,6 +44,16 @@ cover: ## Generate coverage report
 	go tool cover -html=$(COVER_PROFILE) -o $(COVER_HTML)
 	@echo "Coverage report: $(COVER_HTML)"
 
+## E2E tests
+
+.PHONY: e2e
+e2e: build ## Run E2E tests (requires Node.js + npm install in e2e/)
+	@if [ ! -d e2e/node_modules ]; then \
+		echo "Installing e2e dependencies..."; \
+		cd e2e && npm install --silent; \
+	fi
+	go test -tags e2e -timeout 60s ./e2e/...
+
 ## Cleanup
 
 .PHONY: clean

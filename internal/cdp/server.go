@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net"
 	"net/http"
 	"sync"
@@ -25,6 +26,7 @@ type Server struct {
 	protocolVersion string
 	userAgent       string
 	webSocketURL    string
+	debugLog        bool
 }
 
 // ServerOption configures a Server.
@@ -38,6 +40,11 @@ func WithAddr(addr string) ServerOption {
 // WithBrowserVersion sets the browser version string.
 func WithBrowserVersion(v string) ServerOption {
 	return func(s *Server) { s.browserVersion = v }
+}
+
+// WithDebugLog enables debug logging to stderr.
+func WithDebugLog(enable bool) ServerOption {
+	return func(s *Server) { s.debugLog = enable }
 }
 
 // NewServer creates a CDP server with the given options.
@@ -139,14 +146,21 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		}
 
 		resp, events := s.dispatch(sess, req)
+		resp.SessionID = req.SessionID
 		s.writeJSON(ctx, conn, resp)
 		for _, evt := range events {
+			if evt.SessionID == "" {
+				evt.SessionID = req.SessionID
+			}
 			s.writeJSON(ctx, conn, evt)
 		}
 	}
 }
 
 func (s *Server) dispatch(sess *Session, req Request) (Response, []Event) {
+	if s.debugLog {
+		log.Printf("[CDP] → %s (id=%d session=%q)", req.Method, req.ID, req.SessionID)
+	}
 	// Check session-aware handlers first.
 	s.mu.RLock()
 	sh, shOK := s.sessionHandlers[req.Method]

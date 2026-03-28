@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/dop251/goja"
 	"github.com/nyasuto/uzura/internal/js"
 	"github.com/nyasuto/uzura/internal/page"
 )
@@ -57,30 +58,30 @@ func (d *RuntimeDomain) evaluate(_ *Session, params json.RawMessage) (json.RawMe
 	}
 
 	vm := d.page.VM()
-	val, err := vm.Eval(p.Expression)
+	raw, err := vm.EvalRaw(p.Expression)
 
 	var events []Event
 
 	if err != nil {
-		// Build exception details for JS errors.
 		exObj := d.objects.SerializeValue(err.Error())
 		exDetails := d.buildExceptionDetails(err.Error(), p.Expression)
 		result := map[string]interface{}{
 			"result":           exObj,
 			"exceptionDetails": exDetails,
 		}
-
-		// Also emit Runtime.exceptionThrown event.
 		evt := d.makeExceptionThrownEvent(exDetails)
 		if evt != nil {
 			events = append(events, *evt)
 		}
-
 		r, merr := json.Marshal(result)
 		return r, events, merr
 	}
 
-	ro := d.objects.SerializeValue(val)
+	ro := d.objects.SerializeGojaValue(raw)
+	if p.ReturnByValue && ro.ObjectID != "" {
+		// When returnByValue is true, export and inline the value.
+		ro = d.objects.SerializeValue(raw.Export())
+	}
 	result := map[string]interface{}{"result": ro}
 	r, merr := json.Marshal(result)
 	return r, events, merr
@@ -90,6 +91,7 @@ func (d *RuntimeDomain) callFunctionOn(_ *Session, params json.RawMessage) (json
 	var p struct {
 		FunctionDeclaration string `json:"functionDeclaration"`
 		ObjectID            string `json:"objectId"`
+		ExecutionContextID  int    `json:"executionContextId"`
 		Arguments           []struct {
 			Value    interface{} `json:"value,omitempty"`
 			ObjectID string      `json:"objectId,omitempty"`
@@ -103,49 +105,56 @@ func (d *RuntimeDomain) callFunctionOn(_ *Session, params json.RawMessage) (json
 	vm := d.page.VM()
 	rt := vm.Runtime()
 
-	// Resolve this object.
-	var thisVal interface{}
+	// Resolve this object — keep as goja.Value if possible.
+	thisGojaVal := goja.Undefined()
 	if p.ObjectID != "" {
-		var ok bool
-		thisVal, ok = d.objects.Get(p.ObjectID)
+		stored, ok := d.objects.Get(p.ObjectID)
 		if !ok {
 			return nil, nil, fmt.Errorf("object not found: %s", p.ObjectID)
 		}
-	}
-
-	// Build argument values for the call.
-	args := make([]interface{}, len(p.Arguments))
-	for i, arg := range p.Arguments {
-		if arg.ObjectID != "" {
-			v, ok := d.objects.Get(arg.ObjectID)
-			if !ok {
-				return nil, nil, fmt.Errorf("argument object not found: %s", arg.ObjectID)
-			}
-			args[i] = v
+		if gv, ok := stored.(goja.Value); ok {
+			thisGojaVal = gv
 		} else {
-			args[i] = arg.Value
+			thisGojaVal = rt.ToValue(stored)
 		}
 	}
 
-	// Evaluate: wrap as IIFE with this binding.
-	// (function(){...}).call(thisArg, arg0, arg1, ...)
-	_ = rt.Set("__cdp_this", thisVal)
-	for i, arg := range args {
+	// Build argument goja values.
+	gojaArgs := make([]goja.Value, len(p.Arguments))
+	for i, arg := range p.Arguments {
+		if arg.ObjectID != "" {
+			stored, ok := d.objects.Get(arg.ObjectID)
+			if !ok {
+				return nil, nil, fmt.Errorf("argument object not found: %s", arg.ObjectID)
+			}
+			if gv, ok := stored.(goja.Value); ok {
+				gojaArgs[i] = gv
+			} else {
+				gojaArgs[i] = rt.ToValue(stored)
+			}
+		} else {
+			gojaArgs[i] = rt.ToValue(arg.Value)
+		}
+	}
+
+	// Set up temporaries for the call expression.
+	_ = rt.Set("__cdp_this", thisGojaVal)
+	for i, arg := range gojaArgs {
 		_ = rt.Set(fmt.Sprintf("__cdp_arg%d", i), arg)
 	}
 
 	callExpr := fmt.Sprintf("(%s).call(__cdp_this", p.FunctionDeclaration)
-	for i := range args {
+	for i := range gojaArgs {
 		callExpr += fmt.Sprintf(", __cdp_arg%d", i)
 	}
 	callExpr += ")"
 
-	val, err := vm.Eval(callExpr)
+	raw, err := vm.EvalRaw(callExpr)
 
 	// Clean up temp globals.
-	_ = rt.Set("__cdp_this", nil)
-	for i := range args {
-		_ = rt.Set(fmt.Sprintf("__cdp_arg%d", i), nil)
+	_ = rt.Set("__cdp_this", goja.Undefined())
+	for i := range gojaArgs {
+		_ = rt.Set(fmt.Sprintf("__cdp_arg%d", i), goja.Undefined())
 	}
 
 	if err != nil {
@@ -159,7 +168,10 @@ func (d *RuntimeDomain) callFunctionOn(_ *Session, params json.RawMessage) (json
 		return r, nil, merr
 	}
 
-	ro := d.objects.SerializeValue(val)
+	ro := d.objects.SerializeGojaValue(raw)
+	if p.ReturnByValue && ro.ObjectID != "" {
+		ro = d.objects.SerializeValue(raw.Export())
+	}
 	result := map[string]interface{}{"result": ro}
 	r, merr := json.Marshal(result)
 	return r, nil, merr

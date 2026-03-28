@@ -3,6 +3,8 @@ package cdp
 import (
 	"fmt"
 	"sync"
+
+	"github.com/dop251/goja"
 )
 
 // RemoteObject is the CDP Runtime.RemoteObject structure.
@@ -84,9 +86,89 @@ func (s *ObjectStore) SerializeValue(v interface{}) RemoteObject {
 			ObjectID:    id,
 		}
 	default:
-		// For other types, serialize as string description.
+		// For other types (including DOM proxy objects), store and return objectId.
+		id := s.Store(val)
 		desc := fmt.Sprintf("%v", val)
-		return RemoteObject{Type: "object", Description: desc}
+		return RemoteObject{
+			Type:        "object",
+			ClassName:   "Object",
+			Description: desc,
+			ObjectID:    id,
+		}
+	}
+}
+
+// SerializeGojaValue converts a raw goja.Value to a CDP RemoteObject.
+// It stores the original goja.Value (not exported) so callFunctionOn can use it.
+func (s *ObjectStore) SerializeGojaValue(v goja.Value) RemoteObject {
+	if v == nil || goja.IsUndefined(v) {
+		return RemoteObject{Type: "undefined"}
+	}
+	if goja.IsNull(v) {
+		return RemoteObject{Type: "object", Subtype: "null"}
+	}
+
+	exported := v.Export()
+
+	switch val := exported.(type) {
+	case bool:
+		return RemoteObject{Type: "boolean", Value: val}
+	case string:
+		return RemoteObject{Type: "string", Value: val}
+	case int64:
+		return RemoteObject{Type: "number", Value: val, Description: fmt.Sprintf("%d", val)}
+	case float64:
+		return RemoteObject{Type: "number", Value: val, Description: fmt.Sprintf("%v", val)}
+	case int:
+		return RemoteObject{Type: "number", Value: val, Description: fmt.Sprintf("%d", val)}
+	}
+
+	// Complex type — store the raw goja.Value to preserve JS identity.
+	id := s.Store(v)
+
+	if obj, ok := v.(*goja.Object); ok {
+		// Check if it's a DOM node by looking for nodeType property.
+		nodeType := obj.Get("nodeType")
+		if nodeType != nil && !goja.IsUndefined(nodeType) {
+			desc := ""
+			if tn := obj.Get("nodeName"); tn != nil && !goja.IsUndefined(tn) {
+				desc = tn.String()
+			}
+			return RemoteObject{
+				Type:        "object",
+				Subtype:     "node",
+				ClassName:   "Node",
+				Description: desc,
+				ObjectID:    id,
+			}
+		}
+
+		// Check if it's an array.
+		if arr, isArr := exported.([]interface{}); isArr {
+			return RemoteObject{
+				Type:        "object",
+				Subtype:     "array",
+				ClassName:   "Array",
+				Description: fmt.Sprintf("Array(%d)", len(arr)),
+				ObjectID:    id,
+			}
+		}
+
+		// Generic object — use className from goja if available.
+		className := obj.ClassName()
+		return RemoteObject{
+			Type:        "object",
+			ClassName:   className,
+			Description: className,
+			ObjectID:    id,
+		}
+	}
+
+	return RemoteObject{
+		Type:        "object",
+		ClassName:   "Object",
+		Description: "Object",
+		ObjectID:    id,
 	}
 }
 

@@ -101,6 +101,12 @@ func (vm *VM) Eval(src string) (interface{}, error) {
 	return exported, nil
 }
 
+// EvalRaw executes JavaScript source code and returns the raw goja.Value.
+// Use this when you need to preserve the original goja object (e.g., for CDP callFunctionOn).
+func (vm *VM) EvalRaw(src string) (goja.Value, error) {
+	return vm.runtime.RunString(src)
+}
+
 // Reset discards the current runtime and creates a fresh sandboxed VM.
 func (vm *VM) Reset() {
 	vm.init()

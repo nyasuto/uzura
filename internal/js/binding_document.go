@@ -21,6 +21,10 @@ type docBinder struct {
 func (b *docBinder) makeDocumentObj() *goja.Object {
 	obj := b.vm.runtime.NewObject()
 
+	// nodeType = 9 (Document) — required for CDP subtype detection.
+	_ = obj.Set("nodeType", 9)
+	_ = obj.Set("nodeName", "#document")
+
 	_ = obj.DefineAccessorProperty("title", b.vm.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
 		return b.vm.runtime.ToValue(b.doc.Title())
 	}), nil, goja.FLAG_FALSE, goja.FLAG_TRUE)

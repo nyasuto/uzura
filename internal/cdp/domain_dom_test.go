@@ -48,16 +48,19 @@ func startDOMServer(t *testing.T) (srv *cdp.Server, htmlSrv *httptest.Server) {
 	return s, html
 }
 
-// navigateAndDrain navigates and consumes the response + 2 lifecycle events.
+// navigateAndDrain navigates and consumes the response + all lifecycle events.
 func navigateAndDrain(t *testing.T, ctx context.Context, conn *websocket.Conn, url string) {
 	t.Helper()
 	sendRPC(t, ctx, conn, map[string]interface{}{
 		"id": 100, "method": "Page.navigate",
 		"params": map[string]string{"url": url},
 	})
-	readRPC(t, ctx, conn) // response
-	readRPC(t, ctx, conn) // domContentEventFired
-	readRPC(t, ctx, conn) // loadEventFired
+	// Navigate sends: response + 8 lifecycle events (init, frameNavigated,
+	// executionContextCreated, DOMContentLoaded, domContentEventFired,
+	// load, loadEventFired, frameStoppedLoading).
+	for range 9 {
+		readRPC(t, ctx, conn)
+	}
 }
 
 type rpcResponse struct {

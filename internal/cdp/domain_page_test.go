@@ -44,6 +44,23 @@ func startPageServer(t *testing.T) (srv *cdp.Server, htmlSrv *httptest.Server) {
 	return s, html
 }
 
+type eventMsg struct {
+	Method string          `json:"method"`
+	Params json.RawMessage `json:"params"`
+}
+
+func readAllEvents(t *testing.T, ctx context.Context, conn *websocket.Conn, n int) []eventMsg {
+	t.Helper()
+	events := make([]eventMsg, n)
+	for i := 0; i < n; i++ {
+		data := readRPC(t, ctx, conn)
+		if err := json.Unmarshal(data, &events[i]); err != nil {
+			t.Fatalf("unmarshal event %d: %v", i, err)
+		}
+	}
+	return events
+}
+
 func TestPageEnable(t *testing.T) {
 	s, _ := startPageServer(t)
 
@@ -123,36 +140,28 @@ func TestPageNavigate(t *testing.T) {
 		t.Errorf("unexpected errorText: %q", resp.Result.ErrorText)
 	}
 
-	// Next two messages should be events.
-	events := make([]struct {
-		Method string          `json:"method"`
-		Params json.RawMessage `json:"params"`
-	}, 2)
+	// Read all lifecycle events following the response.
+	events := readAllEvents(t, ctx, conn, 8)
 
-	for i := 0; i < 2; i++ {
-		data := readRPC(t, ctx, conn)
-		if err := json.Unmarshal(data, &events[i]); err != nil {
-			t.Fatalf("unmarshal event %d: %v", i, err)
+	// Verify key events are present.
+	methodSet := make(map[string]json.RawMessage)
+	for _, evt := range events {
+		methodSet[evt.Method] = evt.Params
+	}
+	for _, want := range []string{"Page.domContentEventFired", "Page.loadEventFired", "Page.frameNavigated", "Page.lifecycleEvent"} {
+		if _, ok := methodSet[want]; !ok {
+			t.Errorf("missing expected event %q", want)
 		}
 	}
 
-	if events[0].Method != "Page.domContentEventFired" {
-		t.Errorf("event[0] = %q, want Page.domContentEventFired", events[0].Method)
-	}
-	if events[1].Method != "Page.loadEventFired" {
-		t.Errorf("event[1] = %q, want Page.loadEventFired", events[1].Method)
-	}
-
-	// Verify timestamps exist in events.
-	for i, evt := range events {
-		var params struct {
+	// Verify domContentEventFired has a timestamp.
+	if params, ok := methodSet["Page.domContentEventFired"]; ok {
+		var ts struct {
 			Timestamp float64 `json:"timestamp"`
 		}
-		if err := json.Unmarshal(evt.Params, &params); err != nil {
-			t.Fatalf("event %d params: %v", i, err)
-		}
-		if params.Timestamp <= 0 {
-			t.Errorf("event %d: timestamp = %f, want > 0", i, params.Timestamp)
+		json.Unmarshal(params, &ts)
+		if ts.Timestamp <= 0 {
+			t.Errorf("domContentEventFired timestamp = %f, want > 0", ts.Timestamp)
 		}
 	}
 }
@@ -237,10 +246,10 @@ func TestPageGetFrameTree(t *testing.T) {
 		"method": "Page.navigate",
 		"params": map[string]string{"url": html.URL},
 	})
-	// Consume response + 2 events.
-	readRPC(t, ctx, conn)
-	readRPC(t, ctx, conn)
-	readRPC(t, ctx, conn)
+	// Consume response + 8 lifecycle events.
+	for range 9 {
+		readRPC(t, ctx, conn)
+	}
 
 	// Get frame tree.
 	sendRPC(t, ctx, conn, map[string]interface{}{
@@ -357,21 +366,20 @@ func TestPageNavigateFullFlow(t *testing.T) {
 		t.Errorf("frameId = %q, want main", nr.Result.FrameID)
 	}
 
-	// Events: domContentEventFired, then loadEventFired
-	evt1 := readRPC(t, ctx, conn)
-	evt2 := readRPC(t, ctx, conn)
-
-	var e1, e2 struct {
-		Method string `json:"method"`
+	// Read all lifecycle events and verify key events are present.
+	events := readAllEvents(t, ctx, conn, 8)
+	methodSet := make(map[string]bool)
+	for _, evt := range events {
+		methodSet[evt.Method] = true
 	}
-	json.Unmarshal(evt1, &e1)
-	json.Unmarshal(evt2, &e2)
-
-	if e1.Method != "Page.domContentEventFired" {
-		t.Errorf("first event = %q, want Page.domContentEventFired", e1.Method)
+	if !methodSet["Page.domContentEventFired"] {
+		t.Error("missing Page.domContentEventFired event")
 	}
-	if e2.Method != "Page.loadEventFired" {
-		t.Errorf("second event = %q, want Page.loadEventFired", e2.Method)
+	if !methodSet["Page.loadEventFired"] {
+		t.Error("missing Page.loadEventFired event")
+	}
+	if !methodSet["Page.frameNavigated"] {
+		t.Error("missing Page.frameNavigated event")
 	}
 
 	// 3. Page.getFrameTree — verify navigation worked

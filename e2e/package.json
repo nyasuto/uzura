@@ -1,0 +1,9 @@
+{
+  "name": "uzura-e2e",
+  "private": true,
+  "type": "module",
+  "devDependencies": {
+    "puppeteer-core": "^24.0.0",
+    "playwright-core": "^1.50.0"
+  }
+}

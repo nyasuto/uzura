@@ -22,6 +22,7 @@ func runServe() error {
 		cdp.WithAddr(addr),
 		cdp.WithBrowserVersion(fmt.Sprintf("Uzura/%s", Version)),
 	)
+	cdp.Setup(s)
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer cancel()

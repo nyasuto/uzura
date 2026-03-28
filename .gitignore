@@ -1,6 +1,6 @@
 # Binary
 /uzura
-
+/e2e/node_modules/
 # Coverage
 *.out
 coverage.html

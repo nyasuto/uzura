@@ -30,9 +30,9 @@ type NetworkEvent struct {
 	Timestamp float64
 
 	// Response fields (populated for ResponseReceived, LoadingFinished).
-	StatusCode int
-	StatusText string
-	MimeType   string
+	StatusCode  int
+	StatusText  string
+	MimeType    string
 	RespHeaders http.Header
 
 	// LoadingFinished fields.
@@ -42,8 +42,8 @@ type NetworkEvent struct {
 	ErrorText string
 
 	// Body stored for getResponseBody.
-	Body       []byte
-	Base64     bool
+	Body   []byte
+	Base64 bool
 }
 
 // NetworkEventType identifies the kind of network event.

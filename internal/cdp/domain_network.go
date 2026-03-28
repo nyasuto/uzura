@@ -103,12 +103,12 @@ func (d *NetworkDomain) sendRequestWillBeSent(sess *Session, evt page.NetworkEve
 	}
 
 	_ = sess.SendEvent("Network.requestWillBeSent", map[string]interface{}{
-		"requestId": evt.RequestID,
-		"loaderId":  "loader-1",
+		"requestId":   evt.RequestID,
+		"loaderId":    "loader-1",
 		"documentURL": evt.URL,
-		"timestamp": evt.Timestamp,
-		"type":      "Document",
-		"frameId":   "main",
+		"timestamp":   evt.Timestamp,
+		"type":        "Document",
+		"frameId":     "main",
 		"request": map[string]interface{}{
 			"url":     evt.URL,
 			"method":  evt.Method,

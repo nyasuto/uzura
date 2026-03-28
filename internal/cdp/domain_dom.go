@@ -28,6 +28,7 @@ func (d *DOMDomain) Register(s *Server) {
 	s.HandleSession("DOM.getOuterHTML", d.getOuterHTML)
 	s.HandleSession("DOM.setOuterHTML", d.setOuterHTML)
 	s.HandleSession("DOM.getAttributes", d.getAttributes)
+	s.HandleSession("DOM.describeNode", d.describeNode)
 	s.HandleSession("DOM.setAttributeValue", d.setAttributeValue)
 	s.HandleSession("DOM.removeAttribute", d.removeAttribute)
 	s.HandleSession("DOM.requestChildNodes", d.requestChildNodes)
@@ -294,6 +295,44 @@ func (d *DOMDomain) requestChildNodes(sess *Session, params json.RawMessage) (js
 
 	r, _ := json.Marshal(struct{}{})
 	return r, events, nil
+}
+
+func (d *DOMDomain) describeNode(_ *Session, params json.RawMessage) (json.RawMessage, []Event, error) {
+	var p struct {
+		NodeID        int    `json:"nodeId"`
+		BackendNodeID int    `json:"backendNodeId"`
+		ObjectID      string `json:"objectId"`
+		Depth         *int   `json:"depth"`
+	}
+	if err := json.Unmarshal(params, &p); err != nil {
+		return nil, nil, fmt.Errorf("invalid params: %w", err)
+	}
+
+	// Resolve node from any of the provided identifiers.
+	var n dom.Node
+	if p.NodeID != 0 {
+		n = d.store.Lookup(p.NodeID)
+	} else if p.BackendNodeID != 0 {
+		n = d.store.Lookup(p.BackendNodeID)
+	}
+
+	// If we still don't have a node, try to resolve from the document root.
+	if n == nil && d.page.Document() != nil {
+		n = d.page.Document()
+	}
+
+	if n == nil {
+		return nil, nil, fmt.Errorf("node not found")
+	}
+
+	depth := 0
+	if p.Depth != nil {
+		depth = *p.Depth
+	}
+
+	node := d.serializeNode(n, depth)
+	r, err := json.Marshal(map[string]interface{}{"node": node})
+	return r, nil, err
 }
 
 // serializeNode converts a DOM node to the CDP Node JSON representation.

@@ -10,6 +10,10 @@ import (
 func (b *docBinder) wrapElement(el *dom.Element) goja.Value {
 	obj := b.vm.runtime.NewObject()
 
+	// nodeType = 1 (Element) — required for CDP subtype detection.
+	_ = obj.Set("nodeType", 1)
+	_ = obj.Set("nodeName", el.TagName())
+
 	_ = obj.DefineAccessorProperty("tagName", b.vm.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
 		return b.vm.runtime.ToValue(el.TagName())
 	}), nil, goja.FLAG_FALSE, goja.FLAG_TRUE)

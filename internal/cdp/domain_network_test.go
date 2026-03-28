@@ -111,9 +111,8 @@ func TestNetworkEventsOnNavigate(t *testing.T) {
 		"params": map[string]string{"url": html.URL},
 	})
 
-	// Collect messages: 3 network events (async via session) come before the
-	// navigate response + 2 page events. We need to read all and classify.
-	messages := readAllMessages(t, ctx, conn, 6) // 3 network + 1 response + 2 page events
+	// Collect messages: 3 network events (async) + 1 response + 9 page lifecycle events.
+	messages := readAllMessages(t, ctx, conn, 12)
 
 	var (
 		reqWillBeSent bool
@@ -209,7 +208,7 @@ func TestNetworkGetResponseBody(t *testing.T) {
 	})
 
 	// Collect all messages to find the requestId.
-	messages := readAllMessages(t, ctx, conn, 6)
+	messages := readAllMessages(t, ctx, conn, 12)
 
 	var requestID string
 	for _, msg := range messages {
@@ -322,7 +321,7 @@ func TestNetworkRequestIDManagement(t *testing.T) {
 		"method": "Page.navigate",
 		"params": map[string]string{"url": html.URL},
 	})
-	msgs1 := readAllMessages(t, ctx, conn, 6)
+	msgs1 := readAllMessages(t, ctx, conn, 12)
 
 	// Second navigation.
 	sendRPC(t, ctx, conn, map[string]interface{}{
@@ -330,7 +329,7 @@ func TestNetworkRequestIDManagement(t *testing.T) {
 		"method": "Page.navigate",
 		"params": map[string]string{"url": html.URL},
 	})
-	msgs2 := readAllMessages(t, ctx, conn, 6)
+	msgs2 := readAllMessages(t, ctx, conn, 12)
 
 	id1 := extractRequestID(t, msgs1)
 	id2 := extractRequestID(t, msgs2)
@@ -376,7 +375,7 @@ func TestNetworkEventTimeOrder(t *testing.T) {
 		"params": map[string]string{"url": html.URL},
 	})
 
-	messages := readAllMessages(t, ctx, conn, 6)
+	messages := readAllMessages(t, ctx, conn, 12)
 
 	// Extract timestamps in order of network events.
 	var timestamps []float64
