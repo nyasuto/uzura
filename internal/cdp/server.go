@@ -13,11 +13,12 @@ import (
 
 // Server is a CDP WebSocket server.
 type Server struct {
-	mu       sync.RWMutex
-	handlers map[string]Handler
-	addr     string
-	listener net.Listener
-	srv      *http.Server
+	mu              sync.RWMutex
+	handlers        map[string]Handler
+	sessionHandlers map[string]SessionHandler
+	addr            string
+	listener        net.Listener
+	srv             *http.Server
 
 	// Browser metadata for discovery endpoints.
 	browserVersion  string
@@ -43,6 +44,7 @@ func WithBrowserVersion(v string) ServerOption {
 func NewServer(opts ...ServerOption) *Server {
 	s := &Server{
 		handlers:        make(map[string]Handler),
+		sessionHandlers: make(map[string]SessionHandler),
 		addr:            ":9222",
 		browserVersion:  "Uzura/dev",
 		protocolVersion: "1.3",
@@ -59,6 +61,14 @@ func (s *Server) Handle(method string, h Handler) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.handlers[method] = h
+}
+
+// HandleSession registers a session-aware handler for a CDP method.
+// Session handlers have access to the client connection for pushing events.
+func (s *Server) HandleSession(method string, h SessionHandler) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.sessionHandlers[method] = h
 }
 
 // Start begins listening. It returns once the listener is ready.
@@ -111,6 +121,8 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	defer conn.Close(websocket.StatusNormalClosure, "")
 
 	ctx := r.Context()
+	sess := newSession(ctx, conn)
+
 	for {
 		_, data, err := conn.Read(ctx)
 		if err != nil {
@@ -126,31 +138,47 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
-		resp := s.dispatch(req)
+		resp, events := s.dispatch(sess, req)
 		s.writeJSON(ctx, conn, resp)
+		for _, evt := range events {
+			s.writeJSON(ctx, conn, evt)
+		}
 	}
 }
 
-func (s *Server) dispatch(req Request) Response {
+func (s *Server) dispatch(sess *Session, req Request) (Response, []Event) {
+	// Check session-aware handlers first.
 	s.mu.RLock()
-	h, ok := s.handlers[req.Method]
+	sh, shOK := s.sessionHandlers[req.Method]
+	h, hOK := s.handlers[req.Method]
 	s.mu.RUnlock()
 
-	if !ok {
-		return Response{
-			ID:    req.ID,
-			Error: &RPCError{Code: -32601, Message: fmt.Sprintf("method not found: %s", req.Method)},
+	if shOK {
+		result, events, err := sh(sess, req.Params)
+		if err != nil {
+			return Response{
+				ID:    req.ID,
+				Error: &RPCError{Code: -32000, Message: err.Error()},
+			}, nil
 		}
+		return Response{ID: req.ID, Result: result}, events
 	}
 
-	result, err := h(req.Params)
-	if err != nil {
-		return Response{
-			ID:    req.ID,
-			Error: &RPCError{Code: -32000, Message: err.Error()},
+	if hOK {
+		result, err := h(req.Params)
+		if err != nil {
+			return Response{
+				ID:    req.ID,
+				Error: &RPCError{Code: -32000, Message: err.Error()},
+			}, nil
 		}
+		return Response{ID: req.ID, Result: result}, nil
 	}
-	return Response{ID: req.ID, Result: result}
+
+	return Response{
+		ID:    req.ID,
+		Error: &RPCError{Code: -32601, Message: fmt.Sprintf("method not found: %s", req.Method)},
+	}, nil
 }
 
 func (s *Server) writeJSON(ctx context.Context, conn *websocket.Conn, v interface{}) {
