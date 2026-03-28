@@ -22,13 +22,27 @@ func (b *docBinder) wrapElement(el *dom.Element) goja.Value {
 		return b.vm.runtime.ToValue(el.ClassName())
 	}), nil, goja.FLAG_FALSE, goja.FLAG_TRUE)
 
-	_ = obj.DefineAccessorProperty("textContent", b.vm.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
-		return b.vm.runtime.ToValue(el.TextContent())
-	}), nil, goja.FLAG_FALSE, goja.FLAG_TRUE)
+	_ = obj.DefineAccessorProperty("textContent",
+		b.vm.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+			return b.vm.runtime.ToValue(el.TextContent())
+		}),
+		b.vm.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+			el.SetTextContent(call.Argument(0).String())
+			return goja.Undefined()
+		}),
+		goja.FLAG_FALSE, goja.FLAG_TRUE)
 
-	_ = obj.DefineAccessorProperty("innerHTML", b.vm.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
-		return b.vm.runtime.ToValue(dom.InnerHTML(el))
-	}), nil, goja.FLAG_FALSE, goja.FLAG_TRUE)
+	_ = obj.DefineAccessorProperty("innerHTML",
+		b.vm.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+			return b.vm.runtime.ToValue(dom.InnerHTML(el))
+		}),
+		b.vm.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+			if err := el.SetInnerHTML(call.Argument(0).String()); err != nil {
+				panic(b.vm.runtime.NewGoError(err))
+			}
+			return goja.Undefined()
+		}),
+		goja.FLAG_FALSE, goja.FLAG_TRUE)
 
 	_ = obj.DefineAccessorProperty("outerHTML", b.vm.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
 		return b.vm.runtime.ToValue(dom.OuterHTML(el))
@@ -89,6 +103,24 @@ func (b *docBinder) wrapElement(el *dom.Element) goja.Value {
 		return b.wrapElement(found)
 	})
 
+	_ = obj.Set("setAttribute", func(call goja.FunctionCall) goja.Value {
+		name := call.Argument(0).String()
+		value := call.Argument(1).String()
+		el.SetAttribute(name, value)
+		return goja.Undefined()
+	})
+
+	_ = obj.Set("removeAttribute", func(call goja.FunctionCall) goja.Value {
+		name := call.Argument(0).String()
+		el.RemoveAttribute(name)
+		return goja.Undefined()
+	})
+
+	b.addNodeMethods(obj, el)
+	b.addClassListProperty(obj, el)
+	b.addDatasetProperty(obj, el)
+	_ = obj.Set("_goNode", el)
+
 	return b.vm.runtime.ToValue(obj)
 }
 
@@ -130,4 +162,132 @@ func (b *docBinder) wrapElementList(elems []*dom.Element) goja.Value {
 
 func intToStr(i int) string {
 	return strconv.Itoa(i)
+}
+
+func (b *docBinder) addNodeMethods(obj *goja.Object, node dom.Node) {
+	_ = obj.DefineAccessorProperty("parentNode",
+		b.vm.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+			p := node.ParentNode()
+			if p == nil {
+				return goja.Null()
+			}
+			return b.wrapNode(p)
+		}), nil, goja.FLAG_FALSE, goja.FLAG_TRUE)
+
+	_ = obj.Set("appendChild", func(call goja.FunctionCall) goja.Value {
+		child := b.unwrapNode(call.Argument(0))
+		node.AppendChild(child)
+		return call.Argument(0)
+	})
+
+	_ = obj.Set("removeChild", func(call goja.FunctionCall) goja.Value {
+		child := b.unwrapNode(call.Argument(0))
+		node.RemoveChild(child)
+		return call.Argument(0)
+	})
+
+	_ = obj.Set("insertBefore", func(call goja.FunctionCall) goja.Value {
+		newChild := b.unwrapNode(call.Argument(0))
+		var refChild dom.Node
+		if !goja.IsNull(call.Argument(1)) && !goja.IsUndefined(call.Argument(1)) {
+			refChild = b.unwrapNode(call.Argument(1))
+		}
+		node.InsertBefore(newChild, refChild)
+		return call.Argument(0)
+	})
+
+	_ = obj.Set("replaceChild", func(call goja.FunctionCall) goja.Value {
+		newChild := b.unwrapNode(call.Argument(0))
+		oldChild := b.unwrapNode(call.Argument(1))
+		node.ReplaceChild(newChild, oldChild)
+		return call.Argument(1)
+	})
+}
+
+func (b *docBinder) addClassListProperty(obj *goja.Object, el *dom.Element) {
+	_ = obj.DefineAccessorProperty("classList",
+		b.vm.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+			cl := el.ClassList()
+			clObj := b.vm.runtime.NewObject()
+
+			_ = clObj.Set("add", func(c goja.FunctionCall) goja.Value {
+				for _, arg := range c.Arguments {
+					cl.Add(arg.String())
+				}
+				return goja.Undefined()
+			})
+			_ = clObj.Set("remove", func(c goja.FunctionCall) goja.Value {
+				for _, arg := range c.Arguments {
+					cl.Remove(arg.String())
+				}
+				return goja.Undefined()
+			})
+			_ = clObj.Set("toggle", func(c goja.FunctionCall) goja.Value {
+				return b.vm.runtime.ToValue(cl.Toggle(c.Argument(0).String()))
+			})
+			_ = clObj.Set("contains", func(c goja.FunctionCall) goja.Value {
+				return b.vm.runtime.ToValue(cl.Contains(c.Argument(0).String()))
+			})
+
+			return b.vm.runtime.ToValue(clObj)
+		}), nil, goja.FLAG_FALSE, goja.FLAG_TRUE)
+}
+
+func (b *docBinder) addDatasetProperty(obj *goja.Object, el *dom.Element) {
+	_ = obj.DefineAccessorProperty("dataset",
+		b.vm.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+			ds := el.Dataset()
+			proxy := b.vm.runtime.NewDynamicObject(&datasetProxy{ds: ds, rt: b.vm.runtime})
+			return b.vm.runtime.ToValue(proxy)
+		}), nil, goja.FLAG_FALSE, goja.FLAG_TRUE)
+}
+
+// wrapNode wraps any dom.Node as a JS object.
+func (b *docBinder) wrapNode(n dom.Node) goja.Value {
+	switch v := n.(type) {
+	case *dom.Element:
+		return b.wrapElement(v)
+	case *dom.Text:
+		return b.wrapTextNode(v)
+	case *dom.Document:
+		return b.vm.runtime.Get("document")
+	case *dom.DocumentFragment:
+		return b.wrapFragment(v)
+	default:
+		return goja.Null()
+	}
+}
+
+func (b *docBinder) wrapTextNode(tn *dom.Text) goja.Value {
+	obj := b.vm.runtime.NewObject()
+	_ = obj.DefineAccessorProperty("textContent",
+		b.vm.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+			return b.vm.runtime.ToValue(tn.TextContent())
+		}),
+		b.vm.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+			tn.SetTextContent(call.Argument(0).String())
+			return goja.Undefined()
+		}),
+		goja.FLAG_FALSE, goja.FLAG_TRUE)
+	_ = obj.Set("_goNode", tn)
+	return b.vm.runtime.ToValue(obj)
+}
+
+func (b *docBinder) wrapFragment(frag *dom.DocumentFragment) goja.Value {
+	obj := b.vm.runtime.NewObject()
+	b.addNodeMethods(obj, frag)
+	_ = obj.Set("_goNode", frag)
+	return b.vm.runtime.ToValue(obj)
+}
+
+// unwrapNode extracts the Go dom.Node from a JS wrapper object.
+func (b *docBinder) unwrapNode(v goja.Value) dom.Node {
+	obj := v.ToObject(b.vm.runtime)
+	goNode := obj.Get("_goNode")
+	if goNode != nil && !goja.IsUndefined(goNode) && !goja.IsNull(goNode) {
+		if n, ok := goNode.Export().(dom.Node); ok {
+			return n
+		}
+	}
+	panic(b.vm.runtime.NewTypeError("argument is not a DOM node"))
 }

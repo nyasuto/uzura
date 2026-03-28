@@ -89,5 +89,22 @@ func (b *docBinder) makeDocumentObj() *goja.Object {
 		return b.wrapElementList(elems)
 	})
 
+	_ = obj.Set("createElement", func(call goja.FunctionCall) goja.Value {
+		tag := call.Argument(0).String()
+		el := b.doc.CreateElement(tag)
+		return b.wrapElement(el)
+	})
+
+	_ = obj.Set("createTextNode", func(call goja.FunctionCall) goja.Value {
+		data := call.Argument(0).String()
+		tn := b.doc.CreateTextNode(data)
+		return b.wrapTextNode(tn)
+	})
+
+	_ = obj.Set("createDocumentFragment", func(call goja.FunctionCall) goja.Value {
+		frag := b.doc.CreateDocumentFragment()
+		return b.wrapFragment(frag)
+	})
+
 	return obj
 }
