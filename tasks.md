@@ -18,12 +18,12 @@
 - [x] テーブル駆動テストで全ツリー操作を検証
 
 ### Task 1.3: Text and Comment Nodes
-- [ ] `Text` 構造体（`baseNode` 埋め込み）
-- [ ] `Comment` 構造体（`baseNode` 埋め込み）
-- [ ] `NodeName()` → `#text` / `#comment`
-- [ ] `TextContent()` の取得・設定
-- [ ] `CloneNode()` の実装
-- [ ] テスト: 生成、内容get/set、クローン
+- [x] `Text` 構造体（`baseNode` 埋め込み）
+- [x] `Comment` 構造体（`baseNode` 埋め込み）
+- [x] `NodeName()` → `#text` / `#comment`
+- [x] `TextContent()` の取得・設定
+- [x] `CloneNode()` の実装
+- [x] テスト: 生成、内容get/set、クローン
 
 ### Task 1.4: Element Implementation
 - [ ] `Element` 構造体（`baseNode` 埋め込み）

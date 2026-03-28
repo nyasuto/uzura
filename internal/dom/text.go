@@ -45,3 +45,8 @@ func (t *Text) TextContent() string {
 func (t *Text) SetTextContent(text string) {
 	t.Data = text
 }
+
+// CloneNode returns a shallow copy of this Text node.
+func (t *Text) CloneNode() *Text {
+	return NewText(t.Data)
+}
