@@ -184,7 +184,9 @@
 - [x] Element: classList, dataset, innerHTML setter（パーサー連携）
 - [x] Document: createDocumentFragment, importNode
 - [x] MutationObserver 基本実装
-- [ ] WPT `dom/nodes/` テストのパス
+- [x] WPT `dom/nodes/` テストのパス
+
+### Phase 4 Status: COMPLETE ✅
 
 ---
 
