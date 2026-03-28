@@ -21,7 +21,13 @@ func (p *Page) Navigate(ctx context.Context, url string) error {
 		p.mu.Unlock()
 		return ErrPageClosed
 	}
+	pageCtx := p.ctx
 	p.mu.Unlock()
+
+	// Merge caller context with page context: canceled if either is done.
+	mergedCtx, mergedCancel := mergeContexts(ctx, pageCtx)
+	defer mergedCancel()
+	ctx = mergedCtx
 
 	reqID := fmt.Sprintf("req-%d", requestCounter.Add(1))
 	now := nowFunc()
@@ -156,8 +162,11 @@ func (p *Page) Navigate(ctx context.Context, url string) error {
 	}
 
 	doc.SetQueryEngine(css.NewEngine())
+
+	p.mu.Lock()
 	p.doc = doc
 	p.url = url
+	p.mu.Unlock()
 	return nil
 }
 
@@ -204,8 +213,11 @@ func (p *Page) handleFulfill(reqID, url string, now func() float64, result *Inte
 		return fmt.Errorf("navigate parse fulfilled %s: %w", url, err)
 	}
 	doc.SetQueryEngine(css.NewEngine())
+
+	p.mu.Lock()
 	p.doc = doc
 	p.url = url
+	p.mu.Unlock()
 	return nil
 }
 
@@ -234,4 +246,17 @@ func nowFunc() func() float64 {
 	return func() float64 {
 		return float64(time.Now().UnixMilli()) / 1000.0
 	}
+}
+
+// mergeContexts returns a context that is canceled when either parent is done.
+func mergeContexts(ctx1, ctx2 context.Context) (context.Context, context.CancelFunc) {
+	merged, cancel := context.WithCancel(ctx1)
+	go func() {
+		select {
+		case <-ctx2.Done():
+			cancel()
+		case <-merged.Done():
+		}
+	}()
+	return merged, cancel
 }

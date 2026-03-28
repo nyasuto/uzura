@@ -3,9 +3,17 @@
 package browser
 
 import (
+	"errors"
 	"sync"
+	"sync/atomic"
 	"time"
 )
+
+// ErrBrowserClosed is returned when an operation is attempted on a closed browser.
+var ErrBrowserClosed = errors.New("browser is closed")
+
+// ErrMaxPagesReached is returned when the maximum number of pages is exceeded.
+var ErrMaxPagesReached = errors.New("maximum number of pages reached")
 
 // Browser represents the top-level browser instance.
 // It manages BrowserContexts, each of which isolates cookies and pages.
@@ -15,12 +23,14 @@ type Browser struct {
 	defaultCtx *BrowserContext
 	opts       Options
 	closed     bool
+	pageCount  atomic.Int32
 }
 
 // Options configures a Browser.
 type Options struct {
 	UserAgent string
 	Timeout   time.Duration
+	MaxPages  int
 }
 
 // Option is a functional option for New.
@@ -34,6 +44,12 @@ func WithUserAgent(ua string) Option {
 // WithTimeout sets the default request timeout.
 func WithTimeout(d time.Duration) Option {
 	return func(o *Options) { o.Timeout = d }
+}
+
+// WithMaxPages sets the maximum number of concurrent pages across all contexts.
+// Zero means unlimited.
+func WithMaxPages(n int) Option {
+	return func(o *Options) { o.MaxPages = n }
 }
 
 // New creates a new Browser with the given options.
@@ -57,7 +73,14 @@ func (b *Browser) DefaultContext() *BrowserContext {
 }
 
 // NewContext creates a new isolated BrowserContext with its own cookie jar.
+// Returns nil if the browser is closed.
 func (b *Browser) NewContext() *BrowserContext {
+	b.mu.Lock()
+	if b.closed {
+		b.mu.Unlock()
+		return nil
+	}
+	b.mu.Unlock()
 	return b.newContext(false)
 }
 
@@ -90,6 +113,28 @@ func (b *Browser) removeContext(ctx *BrowserContext) {
 			return
 		}
 	}
+}
+
+// acquirePage attempts to increment the page count. Returns false if limit reached.
+func (b *Browser) acquirePage() bool {
+	if b.opts.MaxPages <= 0 {
+		b.pageCount.Add(1)
+		return true
+	}
+	for {
+		cur := b.pageCount.Load()
+		if int(cur) >= b.opts.MaxPages {
+			return false
+		}
+		if b.pageCount.CompareAndSwap(cur, cur+1) {
+			return true
+		}
+	}
+}
+
+// releasePage decrements the page count.
+func (b *Browser) releasePage() {
+	b.pageCount.Add(-1)
 }
 
 // Close shuts down the browser, closing all contexts and their pages.

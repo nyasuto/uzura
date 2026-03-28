@@ -51,10 +51,24 @@ func (c *BrowserContext) NewPage() (*page.Page, error) {
 		return nil, errors.New("browser context is closed")
 	}
 
+	// Check browser-level closed state.
+	c.browser.mu.Lock()
+	browserClosed := c.browser.closed
+	c.browser.mu.Unlock()
+	if browserClosed {
+		return nil, ErrBrowserClosed
+	}
+
+	// Check MaxPages limit.
+	if !c.browser.acquirePage() {
+		return nil, ErrMaxPagesReached
+	}
+
 	p := page.New(&page.Options{
 		Fetcher: c.fetcher,
 	})
 	p.SetCloseObserver(func(_ *page.Page) {
+		c.browser.releasePage()
 		c.removePage(p)
 	})
 	c.pages = append(c.pages, p)

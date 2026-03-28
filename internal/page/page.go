@@ -3,6 +3,7 @@
 package page
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -73,6 +74,8 @@ type CloseObserver func(p *Page)
 type Page struct {
 	mu                 sync.Mutex
 	id                 string
+	ctx                context.Context
+	cancel             context.CancelFunc
 	fetcher            *network.Fetcher
 	doc                *dom.Document
 	url                string
@@ -111,8 +114,11 @@ func New(opts *Options) *Page {
 		f = network.NewFetcher(nil)
 	}
 	id := fmt.Sprintf("page-%d", pageIDCounter.Add(1))
+	ctx, cancel := context.WithCancel(context.Background())
 	return &Page{
 		id:                 id,
+		ctx:                ctx,
+		cancel:             cancel,
 		fetcher:            f,
 		vmOptions:          vmOpts,
 		networkObserver:    obs,
@@ -123,6 +129,13 @@ func New(opts *Options) *Page {
 // ID returns the unique identifier for this page.
 func (p *Page) ID() string {
 	return p.id
+}
+
+// Context returns the page's context, which is canceled when the page is closed.
+func (p *Page) Context() context.Context {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.ctx
 }
 
 // SetCloseObserver sets a callback invoked when this page is closed.
@@ -142,13 +155,20 @@ func (p *Page) Close() error {
 	}
 	p.closed = true
 	obs := p.closeObserver
+	cancel := p.cancel
 	p.vm = nil
 	p.doc = nil
 	p.url = ""
 	p.networkObserver = nil
 	p.requestInterceptor = nil
 	p.closeObserver = nil
+	p.cancel = nil
 	p.mu.Unlock()
+
+	// Cancel the page context to abort any in-flight operations.
+	if cancel != nil {
+		cancel()
+	}
 
 	if obs != nil {
 		obs(p)
