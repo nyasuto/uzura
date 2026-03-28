@@ -102,6 +102,40 @@ func (e *Element) ClassName() string {
 	return e.GetAttribute("class")
 }
 
+// ClassList returns a DOMTokenList for manipulating the element's CSS classes.
+func (e *Element) ClassList() *ClassList {
+	return newClassList(e)
+}
+
+// Dataset returns a Dataset for accessing data-* attributes.
+func (e *Element) Dataset() *Dataset {
+	return newDataset(e)
+}
+
+// SetInnerHTML parses the given HTML string and replaces all children.
+func (e *Element) SetInnerHTML(htmlStr string) error {
+	// Remove all existing children
+	for c := e.firstChild; c != nil; {
+		next := c.NextSibling()
+		e.RemoveChild(c)
+		c = next
+	}
+	if htmlStr == "" {
+		return nil
+	}
+	if HTMLParseFragment == nil {
+		return nil
+	}
+	nodes, err := HTMLParseFragment(e, htmlStr)
+	if err != nil {
+		return err
+	}
+	for _, n := range nodes {
+		e.AppendChild(n)
+	}
+	return nil
+}
+
 // AppendChild adds a child node to this element.
 func (e *Element) AppendChild(child Node) Node {
 	return e.appendChild(e, child)

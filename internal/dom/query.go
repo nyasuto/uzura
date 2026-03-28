@@ -15,3 +15,7 @@ var SelectorMatches func(elem *Element, selector string) (bool, error)
 // SelectorClosest finds the closest ancestor matching a CSS selector.
 // It is set by the css package to avoid circular imports.
 var SelectorClosest func(elem *Element, selector string) (*Element, error)
+
+// HTMLParseFragment parses an HTML fragment in the context of a parent element.
+// It is set by the html package to avoid circular imports.
+var HTMLParseFragment func(parent *Element, html string) ([]Node, error)
