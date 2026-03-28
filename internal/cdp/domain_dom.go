@@ -19,19 +19,19 @@ func NewDOMDomain(p *page.Page) *DOMDomain {
 	return &DOMDomain{page: p, store: NewNodeStore()}
 }
 
-// Register adds DOM domain handlers to the server.
-func (d *DOMDomain) Register(s *Server) {
-	s.HandleSession("DOM.enable", d.enable)
-	s.HandleSession("DOM.getDocument", d.getDocument)
-	s.HandleSession("DOM.querySelector", d.querySelector)
-	s.HandleSession("DOM.querySelectorAll", d.querySelectorAll)
-	s.HandleSession("DOM.getOuterHTML", d.getOuterHTML)
-	s.HandleSession("DOM.setOuterHTML", d.setOuterHTML)
-	s.HandleSession("DOM.getAttributes", d.getAttributes)
-	s.HandleSession("DOM.describeNode", d.describeNode)
-	s.HandleSession("DOM.setAttributeValue", d.setAttributeValue)
-	s.HandleSession("DOM.removeAttribute", d.removeAttribute)
-	s.HandleSession("DOM.requestChildNodes", d.requestChildNodes)
+// Register adds DOM domain handlers to the registry.
+func (d *DOMDomain) Register(r HandlerRegistry) {
+	r.HandleSession("DOM.enable", d.enable)
+	r.HandleSession("DOM.getDocument", d.getDocument)
+	r.HandleSession("DOM.querySelector", d.querySelector)
+	r.HandleSession("DOM.querySelectorAll", d.querySelectorAll)
+	r.HandleSession("DOM.getOuterHTML", d.getOuterHTML)
+	r.HandleSession("DOM.setOuterHTML", d.setOuterHTML)
+	r.HandleSession("DOM.getAttributes", d.getAttributes)
+	r.HandleSession("DOM.describeNode", d.describeNode)
+	r.HandleSession("DOM.setAttributeValue", d.setAttributeValue)
+	r.HandleSession("DOM.removeAttribute", d.removeAttribute)
+	r.HandleSession("DOM.requestChildNodes", d.requestChildNodes)
 }
 
 // Store returns the NodeStore for external access (e.g., after navigation reset).

@@ -29,10 +29,10 @@ func (d *NetworkDomain) SetPage(p *page.Page) {
 	d.page = p
 }
 
-// Register adds Network domain handlers to the server.
-func (d *NetworkDomain) Register(s *Server) {
-	s.HandleSession("Network.enable", d.enable)
-	s.Handle("Network.getResponseBody", d.getResponseBody)
+// Register adds Network domain handlers to the registry.
+func (d *NetworkDomain) Register(r HandlerRegistry) {
+	r.HandleSession("Network.enable", d.enable)
+	r.Handle("Network.getResponseBody", d.getResponseBody)
 }
 
 // Observer returns a NetworkObserver callback for use with page.Options.

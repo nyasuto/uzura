@@ -18,6 +18,7 @@ type Server struct {
 	handlers        map[string]Handler
 	sessionHandlers map[string]SessionHandler
 	sessions        []*Session
+	scopes          map[string]*handlerScope // sessionId → per-target handlers
 	addr            string
 	listener        net.Listener
 	srv             *http.Server
@@ -53,6 +54,7 @@ func NewServer(opts ...ServerOption) *Server {
 	s := &Server{
 		handlers:        make(map[string]Handler),
 		sessionHandlers: make(map[string]SessionHandler),
+		scopes:          make(map[string]*handlerScope),
 		addr:            ":9222",
 		browserVersion:  "Uzura/dev",
 		protocolVersion: "1.3",
@@ -182,6 +184,32 @@ func (s *Server) removeSession(sess *Session) {
 	}
 }
 
+// RegisterScope creates a handler scope for the given session ID.
+// Methods registered on the scope take precedence over global handlers
+// when a request carries that sessionId.
+func (s *Server) RegisterScope(sessionID string) *handlerScope {
+	sc := newHandlerScope()
+	s.mu.Lock()
+	s.scopes[sessionID] = sc
+	s.mu.Unlock()
+	return sc
+}
+
+// RemoveScope removes the handler scope for the given session ID.
+func (s *Server) RemoveScope(sessionID string) {
+	s.mu.Lock()
+	delete(s.scopes, sessionID)
+	s.mu.Unlock()
+}
+
+// HasScope returns true if a scope exists for the given session ID.
+func (s *Server) HasScope(sessionID string) bool {
+	s.mu.RLock()
+	_, ok := s.scopes[sessionID]
+	s.mu.RUnlock()
+	return ok
+}
+
 // Broadcast sends an event to all connected sessions.
 func (s *Server) Broadcast(method string, params interface{}) {
 	s.mu.RLock()
@@ -198,7 +226,46 @@ func (s *Server) dispatch(sess *Session, req Request) (Response, []Event) {
 	if s.debugLog {
 		log.Printf("[CDP] → %s (id=%d session=%q)", req.Method, req.ID, req.SessionID)
 	}
-	// Check session-aware handlers first.
+
+	// If the request has a sessionId, try the per-target scope first.
+	if req.SessionID != "" {
+		s.mu.RLock()
+		sc, scOK := s.scopes[req.SessionID]
+		s.mu.RUnlock()
+
+		if !scOK {
+			return Response{
+				ID:    req.ID,
+				Error: &RPCError{Code: -32001, Message: fmt.Sprintf("session not found: %s", req.SessionID)},
+			}, nil
+		}
+
+		h, sh, found := sc.lookup(req.Method)
+		if found {
+			if sh != nil {
+				result, events, err := sh(sess, req.Params)
+				if err != nil {
+					return Response{
+						ID:    req.ID,
+						Error: &RPCError{Code: -32000, Message: err.Error()},
+					}, nil
+				}
+				return Response{ID: req.ID, Result: result}, events
+			}
+			result, err := h(req.Params)
+			if err != nil {
+				return Response{
+					ID:    req.ID,
+					Error: &RPCError{Code: -32000, Message: err.Error()},
+				}, nil
+			}
+			return Response{ID: req.ID, Result: result}, nil
+		}
+		// Fall through to global handlers for methods not in scope
+		// (e.g. Target domain methods, stubs).
+	}
+
+	// Check global handlers.
 	s.mu.RLock()
 	sh, shOK := s.sessionHandlers[req.Method]
 	h, hOK := s.handlers[req.Method]

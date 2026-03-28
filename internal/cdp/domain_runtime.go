@@ -32,11 +32,11 @@ func (d *RuntimeDomain) SetPage(p *page.Page) {
 	d.page = p
 }
 
-// Register adds Runtime domain handlers to the server.
-func (d *RuntimeDomain) Register(s *Server) {
-	s.HandleSession("Runtime.enable", d.enable)
-	s.HandleSession("Runtime.evaluate", d.evaluate)
-	s.HandleSession("Runtime.callFunctionOn", d.callFunctionOn)
+// Register adds Runtime domain handlers to the registry.
+func (d *RuntimeDomain) Register(r HandlerRegistry) {
+	r.HandleSession("Runtime.enable", d.enable)
+	r.HandleSession("Runtime.evaluate", d.evaluate)
+	r.HandleSession("Runtime.callFunctionOn", d.callFunctionOn)
 }
 
 func (d *RuntimeDomain) enable(sess *Session, _ json.RawMessage) (json.RawMessage, []Event, error) {

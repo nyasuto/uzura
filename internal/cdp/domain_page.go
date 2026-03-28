@@ -19,11 +19,11 @@ func NewPageDomain(p *page.Page) *PageDomain {
 	return &PageDomain{page: p}
 }
 
-// Register adds Page domain handlers to the server.
-func (d *PageDomain) Register(s *Server) {
-	s.HandleSession("Page.enable", d.enable)
-	s.HandleSession("Page.navigate", d.navigate)
-	s.HandleSession("Page.getFrameTree", d.getFrameTree)
+// Register adds Page domain handlers to the registry.
+func (d *PageDomain) Register(r HandlerRegistry) {
+	r.HandleSession("Page.enable", d.enable)
+	r.HandleSession("Page.navigate", d.navigate)
+	r.HandleSession("Page.getFrameTree", d.getFrameTree)
 }
 
 func (d *PageDomain) enable(_ *Session, _ json.RawMessage) (json.RawMessage, []Event, error) {

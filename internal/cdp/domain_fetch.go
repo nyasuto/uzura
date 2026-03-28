@@ -71,15 +71,15 @@ func (d *FetchDomain) SetPage(p *page.Page) {
 	d.page = p
 }
 
-// Register adds Fetch domain handlers to the server.
-func (d *FetchDomain) Register(s *Server) {
-	s.HandleSession("Fetch.enable", d.enable)
-	s.HandleSession("Fetch.disable", d.disable)
-	s.HandleSession("Fetch.continueRequest", d.continueRequest)
-	s.HandleSession("Fetch.failRequest", d.failRequest)
-	s.HandleSession("Fetch.fulfillRequest", d.fulfillRequest)
-	s.HandleSession("Fetch.getResponseBody", d.getResponseBody)
-	s.HandleSession("Fetch.continueResponse", d.continueResponse)
+// Register adds Fetch domain handlers to the registry.
+func (d *FetchDomain) Register(r HandlerRegistry) {
+	r.HandleSession("Fetch.enable", d.enable)
+	r.HandleSession("Fetch.disable", d.disable)
+	r.HandleSession("Fetch.continueRequest", d.continueRequest)
+	r.HandleSession("Fetch.failRequest", d.failRequest)
+	r.HandleSession("Fetch.fulfillRequest", d.fulfillRequest)
+	r.HandleSession("Fetch.getResponseBody", d.getResponseBody)
+	r.HandleSession("Fetch.continueResponse", d.continueResponse)
 }
 
 // Interceptor returns a RequestInterceptor for use with page.Options.
