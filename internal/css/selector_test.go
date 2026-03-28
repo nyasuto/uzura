@@ -307,6 +307,54 @@ func TestClosest(t *testing.T) {
 	}
 }
 
+func TestComplexSelectors(t *testing.T) {
+	doc := parseHTML(t, `<html><body>
+		<div id="nav" class="main-nav">
+			<ul>
+				<li class="active"><a href="/home">Home</a></li>
+				<li><a href="/about" class="link external">About</a></li>
+				<li><a href="/contact">Contact</a></li>
+			</ul>
+		</div>
+		<div id="content">
+			<article class="post featured">
+				<h2>Title</h2>
+				<p class="summary">Summary text</p>
+			</article>
+			<article class="post">
+				<h2>Other</h2>
+			</article>
+		</div>
+	</body></html>`)
+
+	tests := []struct {
+		name    string
+		sel     string
+		wantLen int
+	}{
+		{"descendant + attribute", "div a[href]", 3},
+		{"child + class", "ul > li.active", 1},
+		{"sibling combinator", "article.featured ~ article", 1},
+		{"multi-class compound", "a.link.external", 1},
+		{"nested descendant", "#nav ul li a", 3},
+		{"attribute value", `a[href="/about"]`, 1},
+		{"attribute prefix", `a[href^="/"]`, 3},
+		{"not pseudo", "li:not(.active)", 2},
+		{"universal in context", "#content *", 5},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			results, err := QuerySelectorAll(doc, tt.sel)
+			if err != nil {
+				t.Fatalf("error: %v", err)
+			}
+			if len(results) != tt.wantLen {
+				t.Errorf("got %d results, want %d", len(results), tt.wantLen)
+			}
+		})
+	}
+}
+
 func TestPseudoClassSelectors(t *testing.T) {
 	doc := parseHTML(t, `<html><body>
 		<ul>
