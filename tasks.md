@@ -1,6 +1,7 @@
 # Uzura — Phase 1: HTML Parser + DOM Tree
 
 ### Task 1.1: Project Scaffolding
+
 - [x] `go mod init github.com/nyasuto/uzura`
 - [x] ディレクトリ作成: `cmd/uzura/main.go`, `internal/dom/`, `internal/html/`
 - [x] `golang.org/x/net/html` を依存に追加
@@ -9,6 +10,7 @@
 - [x] `uzura version` でバージョン出力
 
 ### Task 1.2: Node Interface and Base Types
+
 - [x] `NodeType` 定数を定義（ElementNode, TextNode, CommentNode, DocumentNode）
 - [x] `Node` インターフェースをWHATWG準拠で定義
 - [x] `baseNode` 構造体（parent/child/sibling管理）を実装
@@ -18,6 +20,7 @@
 - [x] テーブル駆動テストで全ツリー操作を検証
 
 ### Task 1.3: Text and Comment Nodes
+
 - [x] `Text` 構造体（`baseNode` 埋め込み）
 - [x] `Comment` 構造体（`baseNode` 埋め込み）
 - [x] `NodeName()` → `#text` / `#comment`
@@ -26,6 +29,7 @@
 - [x] テスト: 生成、内容get/set、クローン
 
 ### Task 1.4: Element Implementation
+
 - [x] `Element` 構造体（`baseNode` 埋め込み）
 - [x] `TagName`（大文字）と `LocalName`（小文字）
 - [x] 属性: `GetAttribute`, `SetAttribute`, `HasAttribute`, `RemoveAttribute`
@@ -33,6 +37,7 @@
 - [x] テスト: 属性CRUD、大文字小文字
 
 ### Task 1.5: Document Implementation
+
 - [x] `Document` 構造体（`baseNode` 埋め込み）
 - [x] `DocumentElement()`, `Head()`, `Body()`, `Title()`
 - [x] `CreateElement`, `CreateTextNode`, `CreateComment`
@@ -40,6 +45,7 @@
 - [x] テスト: 要素生成、id/tag/classでの検索
 
 ### Task 1.6: HTML Parser → DOM Tree Conversion
+
 - [x] `internal/html/parser.go` — `golang.org/x/net/html` のアダプター
 - [x] `Parse(r io.Reader) (*dom.Document, error)`
 - [x] `html.Node` → `dom.Node` の再帰変換
@@ -47,6 +53,7 @@
 - [x] テスト: 基本HTML、ネストテーブル、閉じタグ欠落、空ドキュメント
 
 ### Task 1.7: DOM Serializer
+
 - [x] `Serialize(node Node) string` — DOM → HTML文字列
 - [x] void要素（`<br>`, `<img>`等）、属性エスケープ、テキストエスケープ
 - [x] raw text要素（`<script>`, `<style>`）
@@ -54,6 +61,7 @@
 - [x] ラウンドトリップテスト: parse → serialize → parse → deep-equal
 
 ### Task 1.8: CLI `parse` コマンド仕上げ
+
 - [x] stdin / ファイル入力対応
 - [x] `--format text` インデント付きツリー表示（デフォルト）
 - [x] `--format json` JSON構造
@@ -61,6 +69,7 @@
 - [x] stderr/stdoutの分離、終了コード
 
 ### Task 1.9: Phase 1 検証
+
 - [x] `go test ./... -race` 全パス
 - [x] `go vet ./...` クリーン
 - [x] ベンチマーク: 100KB HTML を 50ms以内でパース（実測: ~0.8ms）
@@ -73,6 +82,7 @@
 ## 開発エコシステム整備
 
 ### Task 0.1: Makefile
+
 - [x] `Makefile` を作成
 - [x] `make build` — `go build -o uzura ./cmd/uzura`
 - [x] `make test` — `go test ./... -race`
@@ -86,11 +96,80 @@
 - [x] `make cover` — カバレッジレポート生成（`go test -coverprofile` + `go tool cover -html`）
 
 ### Task 0.2: CI用ヘルパー
+
 - [x] `.golangci.yml` — lintルール設定（unused, errcheck, govet, staticcheck等）
 - [x] `.editorconfig` — インデント・改行コード統一
 
 ### Task 0.3: Git hooks
+
 - [x] `make install-hooks` — pre-commit hookのインストール（`make quality` を実行）
 - [x] `.gitignore` の整備（`uzura` バイナリ、`*.out`, `coverage.html` 等を追加）
+
+---
+
+## Phase 2: HTTP Fetcher + Document Loading
+
+### Task 2.1: Basic HTTP Fetcher
+
+- [x] `internal/network/fetcher.go`
+- [x] `Fetch(url string) (*Response, error)` タイムアウト付き
+- [x] User-Agent設定、リダイレクト追跡（最大10回）
+- [x] `net/http/httptest` でテスト
+
+### Task 2.2: Content-Type and Encoding
+
+- [ ] Content-Typeヘッダーからcharset検出
+- [ ] `<meta charset>` タグからのcharset検出
+- [ ] `golang.org/x/text/encoding` でUTF-8変換
+- [ ] テスト: Shift-JIS, EUC-JP, ISO-8859-1
+
+### Task 2.3: Cookie Jar
+
+- [ ] `net/http/cookiejar` 統合
+- [ ] セッション内のCookie永続化
+- [ ] テスト: set/get, リダイレクト跨ぎ
+
+### Task 2.4: Document Loading Pipeline
+
+- [ ] Fetch → Decode → Parse → Document パイプライン
+- [ ] エラーハンドリング（ネットワーク、タイムアウト、不正HTML）
+- [ ] httptest での結合テスト
+
+### Task 2.5: CLI `fetch` コマンド
+
+- [ ] `uzura fetch <url>`
+- [ ] `--format`, `--timeout`, `--user-agent` フラグ
+- [ ] 動作確認: `uzura fetch https://example.com`
+
+### Task 2.6: robots.txt
+
+- [ ] `--obey-robots` フラグ
+- [ ] robots.txtパースとallow/disallowチェック
+
+### Task 2.7: Phase 2 検証
+
+- [ ] テスト全パス、日本語サイトのエンコーディング確認
+
+---
+
+## Phase 3: CSS Selector Engine
+
+### Task 3.1: cascadia統合
+
+- [ ] `github.com/andybalholm/cascadia` 依存追加
+- [ ] `internal/css/selector.go` アダプター
+
+### Task 3.2: querySelector / querySelectorAll
+
+- [ ] Element/DocumentにquerySelector/querySelectorAllを追加
+- [ ] テスト: tag, class, id, 属性, 結合子, 擬似クラス
+
+### Task 3.3: matches / closest
+
+- [ ] `Element.Matches()`, `Element.Closest()`
+
+### Task 3.4: Phase 3 検証
+
+- [ ] 複雑セレクターのテスト、大規模DOMでのベンチマーク
 
 ---
