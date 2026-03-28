@@ -228,34 +228,38 @@ func (e *Element) SetTextContent(text string) {
 
 // QuerySelector returns the first descendant element matching the CSS selector.
 func (e *Element) QuerySelector(sel string) (*Element, error) {
-	if SelectorQuery == nil {
+	qe := getQueryEngine(e)
+	if qe == nil {
 		return nil, nil
 	}
-	return SelectorQuery(e, sel)
+	return qe.QuerySelector(e, sel)
 }
 
 // Matches reports whether this element matches the given CSS selector.
 func (e *Element) Matches(sel string) (bool, error) {
-	if SelectorMatches == nil {
+	qe := getQueryEngine(e)
+	if qe == nil {
 		return false, nil
 	}
-	return SelectorMatches(e, sel)
+	return qe.Matches(e, sel)
 }
 
 // Closest returns the closest ancestor element (or self) matching the selector.
 func (e *Element) Closest(sel string) (*Element, error) {
-	if SelectorClosest == nil {
+	qe := getQueryEngine(e)
+	if qe == nil {
 		return nil, nil
 	}
-	return SelectorClosest(e, sel)
+	return qe.Closest(e, sel)
 }
 
 // QuerySelectorAll returns all descendant elements matching the CSS selector.
 func (e *Element) QuerySelectorAll(sel string) ([]*Element, error) {
-	if SelectorQueryAll == nil {
+	qe := getQueryEngine(e)
+	if qe == nil {
 		return nil, nil
 	}
-	return SelectorQueryAll(e, sel)
+	return qe.QuerySelectorAll(e, sel)
 }
 
 func collectText(sb *strings.Builder, n Node) {

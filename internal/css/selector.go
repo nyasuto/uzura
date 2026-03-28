@@ -8,11 +8,35 @@ import (
 	"golang.org/x/net/html/atom"
 )
 
-func init() {
-	dom.SelectorQueryAll = QuerySelectorAll
-	dom.SelectorQuery = QuerySelector
-	dom.SelectorMatches = Matches
-	dom.SelectorClosest = Closest
+// Engine implements dom.QueryEngine using the cascadia CSS selector library.
+type Engine struct{}
+
+// NewEngine returns a new CSS selector engine.
+func NewEngine() *Engine {
+	return &Engine{}
+}
+
+// Ensure Engine implements dom.QueryEngine at compile time.
+var _ dom.QueryEngine = (*Engine)(nil)
+
+// QuerySelector returns the first descendant element matching the CSS selector, or nil.
+func (e *Engine) QuerySelector(root dom.Node, sel string) (*dom.Element, error) {
+	return QuerySelector(root, sel)
+}
+
+// QuerySelectorAll returns all descendant elements matching the CSS selector.
+func (e *Engine) QuerySelectorAll(root dom.Node, sel string) ([]*dom.Element, error) {
+	return QuerySelectorAll(root, sel)
+}
+
+// Matches reports whether the element matches the CSS selector.
+func (e *Engine) Matches(elem *dom.Element, sel string) (bool, error) {
+	return Matches(elem, sel)
+}
+
+// Closest returns the closest ancestor (or self) matching the CSS selector, or nil.
+func (e *Engine) Closest(elem *dom.Element, sel string) (*dom.Element, error) {
+	return Closest(elem, sel)
 }
 
 // Selector is a compiled CSS selector.

@@ -14,6 +14,7 @@ func parseHTML(t *testing.T, s string) *dom.Document {
 	if err != nil {
 		t.Fatalf("parse error: %v", err)
 	}
+	doc.SetQueryEngine(NewEngine())
 	return doc
 }
 

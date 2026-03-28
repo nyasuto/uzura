@@ -102,16 +102,18 @@ func (f *DocumentFragment) SetTextContent(text string) {
 
 // QuerySelector returns the first descendant element matching the CSS selector.
 func (f *DocumentFragment) QuerySelector(sel string) (*Element, error) {
-	if SelectorQuery == nil {
+	qe := getQueryEngine(f)
+	if qe == nil {
 		return nil, nil
 	}
-	return SelectorQuery(f, sel)
+	return qe.QuerySelector(f, sel)
 }
 
 // QuerySelectorAll returns all descendant elements matching the CSS selector.
 func (f *DocumentFragment) QuerySelectorAll(sel string) ([]*Element, error) {
-	if SelectorQueryAll == nil {
+	qe := getQueryEngine(f)
+	if qe == nil {
 		return nil, nil
 	}
-	return SelectorQueryAll(f, sel)
+	return qe.QuerySelectorAll(f, sel)
 }

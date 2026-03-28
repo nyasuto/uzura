@@ -35,6 +35,7 @@ func benchDoc(b *testing.B, numItems int) *dom.Document {
 	if err != nil {
 		b.Fatal(err)
 	}
+	doc.SetQueryEngine(NewEngine())
 	return doc
 }
 

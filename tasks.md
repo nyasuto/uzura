@@ -196,11 +196,11 @@
 Gemini / o3 レビューで指摘された構造的改善。Phase 5（JS）以降で手戻りしないよう先に対処する。
 
 ### Task 4.5.1: QueryEngine インターフェース化
-- [ ] `dom.QueryEngine` インターフェースを定義（QuerySelector, QuerySelectorAll, Matches, Closest）
-- [ ] `Document` / `Element` 生成時にインターフェースを注入する形に変更
-- [ ] `query.go` の関数変数パターンを廃止
-- [ ] `internal/css` が `QueryEngine` を実装
-- [ ] 既存テストが全パス
+- [x] `dom.QueryEngine` インターフェースを定義（QuerySelector, QuerySelectorAll, Matches, Closest）
+- [x] `Document` / `Element` 生成時にインターフェースを注入する形に変更
+- [x] `query.go` の関数変数パターンを廃止
+- [x] `internal/css` が `QueryEngine` を実装
+- [x] 既存テストが全パス
 
 ### Task 4.5.2: Observer パターン（DOMミューテーション検知）
 - [ ] `dom.MutationEvent` 型を定義（ChildAdded, ChildRemoved, AttributeChanged 等）

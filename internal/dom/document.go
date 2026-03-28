@@ -5,6 +5,7 @@ import "strings"
 // Document represents a DOM Document node.
 type Document struct {
 	baseNode
+	queryEngine QueryEngine
 }
 
 // NewDocument creates a new empty Document.
@@ -144,6 +145,16 @@ func (d *Document) ImportNode(node Node, deep bool) Node {
 	return clone
 }
 
+// SetQueryEngine sets the CSS selector engine for this document.
+func (d *Document) SetQueryEngine(qe QueryEngine) {
+	d.queryEngine = qe
+}
+
+// GetQueryEngine returns the CSS selector engine for this document, or nil.
+func (d *Document) GetQueryEngine() QueryEngine {
+	return d.queryEngine
+}
+
 // CreateElement creates a new Element with the given tag name, owned by this document.
 func (d *Document) CreateElement(tagName string) *Element {
 	e := NewElement(tagName)
@@ -191,18 +202,18 @@ func (d *Document) GetElementsByClassName(classNames string) []*Element {
 
 // QuerySelector returns the first descendant element matching the CSS selector.
 func (d *Document) QuerySelector(sel string) (*Element, error) {
-	if SelectorQuery == nil {
+	if d.queryEngine == nil {
 		return nil, nil
 	}
-	return SelectorQuery(d, sel)
+	return d.queryEngine.QuerySelector(d, sel)
 }
 
 // QuerySelectorAll returns all descendant elements matching the CSS selector.
 func (d *Document) QuerySelectorAll(sel string) ([]*Element, error) {
-	if SelectorQueryAll == nil {
+	if d.queryEngine == nil {
 		return nil, nil
 	}
-	return SelectorQueryAll(d, sel)
+	return d.queryEngine.QuerySelectorAll(d, sel)
 }
 
 func findChildElement(parent *Element, localName string) *Element {
