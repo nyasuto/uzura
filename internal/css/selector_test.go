@@ -148,3 +148,94 @@ func TestQueryFromElement(t *testing.T) {
 		t.Errorf("got class=%q, want %q", results[0].ClassName(), "inner")
 	}
 }
+
+func TestDocumentQuerySelector(t *testing.T) {
+	doc := parseHTML(t, `<html><body>
+		<div id="a" class="item">one</div>
+		<div id="b" class="item">two</div>
+	</body></html>`)
+
+	// Document.QuerySelector
+	elem, err := doc.QuerySelector(".item")
+	if err != nil {
+		t.Fatalf("error: %v", err)
+	}
+	if elem == nil || elem.Id() != "a" {
+		t.Errorf("expected first .item (id=a), got %v", elem)
+	}
+
+	// Document.QuerySelectorAll
+	elems, err := doc.QuerySelectorAll(".item")
+	if err != nil {
+		t.Fatalf("error: %v", err)
+	}
+	if len(elems) != 2 {
+		t.Errorf("expected 2 .item elements, got %d", len(elems))
+	}
+}
+
+func TestElementQuerySelector(t *testing.T) {
+	doc := parseHTML(t, `<html><body>
+		<div id="parent">
+			<span class="child">inside</span>
+		</div>
+		<span class="sibling">outside</span>
+	</body></html>`)
+
+	parent := doc.GetElementById("parent")
+	if parent == nil {
+		t.Fatal("parent not found")
+	}
+
+	// Element.QuerySelector — only descendants
+	elem, err := parent.QuerySelector("span")
+	if err != nil {
+		t.Fatalf("error: %v", err)
+	}
+	if elem == nil || elem.ClassName() != "child" {
+		t.Errorf("expected span.child, got %v", elem)
+	}
+
+	// Element.QuerySelectorAll — only descendants
+	elems, err := parent.QuerySelectorAll("span")
+	if err != nil {
+		t.Fatalf("error: %v", err)
+	}
+	if len(elems) != 1 {
+		t.Errorf("expected 1 span inside parent, got %d", len(elems))
+	}
+}
+
+func TestPseudoClassSelectors(t *testing.T) {
+	doc := parseHTML(t, `<html><body>
+		<ul>
+			<li class="a">first</li>
+			<li class="b">second</li>
+			<li class="c">third</li>
+		</ul>
+	</body></html>`)
+
+	tests := []struct {
+		name      string
+		sel       string
+		wantClass string
+	}{
+		{"first-child", "li:first-child", "a"},
+		{"last-child", "li:last-child", "c"},
+		{"nth-child(2)", "li:nth-child(2)", "b"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			elem, err := doc.QuerySelector(tt.sel)
+			if err != nil {
+				t.Fatalf("error: %v", err)
+			}
+			if elem == nil {
+				t.Fatal("expected a result, got nil")
+			}
+			if elem.ClassName() != tt.wantClass {
+				t.Errorf("got class=%q, want %q", elem.ClassName(), tt.wantClass)
+			}
+		})
+	}
+}

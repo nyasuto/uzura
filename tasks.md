@@ -163,8 +163,8 @@
 
 ### Task 3.2: querySelector / querySelectorAll
 
-- [ ] Element/DocumentにquerySelector/querySelectorAllを追加
-- [ ] テスト: tag, class, id, 属性, 結合子, 擬似クラス
+- [x] Element/DocumentにquerySelector/querySelectorAllを追加
+- [x] テスト: tag, class, id, 属性, 結合子, 擬似クラス
 
 ### Task 3.3: matches / closest
 

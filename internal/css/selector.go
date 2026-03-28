@@ -8,6 +8,11 @@ import (
 	"golang.org/x/net/html/atom"
 )
 
+func init() {
+	dom.SelectorQueryAll = QuerySelectorAll
+	dom.SelectorQuery = QuerySelector
+}
+
 // Selector is a compiled CSS selector.
 type Selector struct {
 	sel cascadia.Selector

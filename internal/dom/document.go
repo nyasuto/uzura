@@ -131,6 +131,22 @@ func (d *Document) GetElementsByClassName(classNames string) []*Element {
 	return result
 }
 
+// QuerySelector returns the first descendant element matching the CSS selector.
+func (d *Document) QuerySelector(sel string) (*Element, error) {
+	if SelectorQuery == nil {
+		return nil, nil
+	}
+	return SelectorQuery(d, sel)
+}
+
+// QuerySelectorAll returns all descendant elements matching the CSS selector.
+func (d *Document) QuerySelectorAll(sel string) ([]*Element, error) {
+	if SelectorQueryAll == nil {
+		return nil, nil
+	}
+	return SelectorQueryAll(d, sel)
+}
+
 func findChildElement(parent *Element, localName string) *Element {
 	for c := parent.FirstChild(); c != nil; c = c.NextSibling() {
 		if e, ok := c.(*Element); ok && e.LocalName() == localName {

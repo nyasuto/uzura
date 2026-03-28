@@ -138,6 +138,22 @@ func (e *Element) SetTextContent(text string) {
 	}
 }
 
+// QuerySelector returns the first descendant element matching the CSS selector.
+func (e *Element) QuerySelector(sel string) (*Element, error) {
+	if SelectorQuery == nil {
+		return nil, nil
+	}
+	return SelectorQuery(e, sel)
+}
+
+// QuerySelectorAll returns all descendant elements matching the CSS selector.
+func (e *Element) QuerySelectorAll(sel string) ([]*Element, error) {
+	if SelectorQueryAll == nil {
+		return nil, nil
+	}
+	return SelectorQueryAll(e, sel)
+}
+
 func collectText(sb *strings.Builder, n Node) {
 	for c := n.FirstChild(); c != nil; c = c.NextSibling() {
 		switch v := c.(type) {
