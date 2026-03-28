@@ -25,7 +25,7 @@ func runParse() error {
 		if err != nil {
 			return err
 		}
-		defer f.Close()
+		defer func() { _ = f.Close() }()
 		r = f
 	} else {
 		r = os.Stdin
@@ -45,7 +45,7 @@ func runParse() error {
 		enc.SetIndent("", "  ")
 		return enc.Encode(obj)
 	case "html":
-		fmt.Fprint(os.Stdout, dom.Serialize(doc))
+		_, _ = fmt.Fprint(os.Stdout, dom.Serialize(doc))
 	default:
 		return fmt.Errorf("unknown format: %s", *format)
 	}
@@ -57,7 +57,7 @@ func printTree(w io.Writer, n dom.Node, depth int) {
 	indent := strings.Repeat("  ", depth)
 	switch v := n.(type) {
 	case *dom.Document:
-		fmt.Fprintf(w, "%s#document\n", indent)
+		_, _ = fmt.Fprintf(w, "%s#document\n", indent)
 	case *dom.Element:
 		attrs := v.Attributes()
 		if len(attrs) > 0 {
@@ -65,17 +65,17 @@ func printTree(w io.Writer, n dom.Node, depth int) {
 			for _, a := range attrs {
 				parts = append(parts, fmt.Sprintf(`%s="%s"`, a.Key, a.Val))
 			}
-			fmt.Fprintf(w, "%s<%s %s>\n", indent, v.LocalName(), strings.Join(parts, " "))
+			_, _ = fmt.Fprintf(w, "%s<%s %s>\n", indent, v.LocalName(), strings.Join(parts, " "))
 		} else {
-			fmt.Fprintf(w, "%s<%s>\n", indent, v.LocalName())
+			_, _ = fmt.Fprintf(w, "%s<%s>\n", indent, v.LocalName())
 		}
 	case *dom.Text:
 		text := strings.TrimSpace(v.Data)
 		if text != "" {
-			fmt.Fprintf(w, "%s\"%s\"\n", indent, text)
+			_, _ = fmt.Fprintf(w, "%s\"%s\"\n", indent, text)
 		}
 	case *dom.Comment:
-		fmt.Fprintf(w, "%s<!-- %s -->\n", indent, strings.TrimSpace(v.Data))
+		_, _ = fmt.Fprintf(w, "%s<!-- %s -->\n", indent, strings.TrimSpace(v.Data))
 	}
 
 	for c := n.FirstChild(); c != nil; c = c.NextSibling() {

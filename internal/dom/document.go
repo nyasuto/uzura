@@ -24,17 +24,17 @@ func (d *Document) NodeName() string {
 
 // AppendChild adds a child node to this document.
 func (d *Document) AppendChild(child Node) Node {
-	return d.baseNode.appendChild(d, child)
+	return d.appendChild(d, child)
 }
 
 // RemoveChild removes a child node from this document.
 func (d *Document) RemoveChild(child Node) Node {
-	return d.baseNode.removeChild(child)
+	return d.removeChild(child)
 }
 
 // InsertBefore inserts newChild before refChild.
 func (d *Document) InsertBefore(newChild, refChild Node) Node {
-	return d.baseNode.insertBefore(d, newChild, refChild)
+	return d.insertBefore(d, newChild, refChild)
 }
 
 // TextContent for Document always returns empty string per spec.

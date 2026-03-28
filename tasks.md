@@ -65,3 +65,32 @@
 - [x] `go vet ./...` クリーン
 - [x] ベンチマーク: 100KB HTML を 50ms以内でパース（実測: ~0.8ms）
 - [x] `curl -s https://example.com | ./uzura parse` 動作確認
+
+### Phase 1 Status: COMPLETE ✅
+
+---
+
+## 開発エコシステム整備
+
+### Task 0.1: Makefile
+- [x] `Makefile` を作成
+- [x] `make build` — `go build -o uzura ./cmd/uzura`
+- [x] `make test` — `go test ./... -race`
+- [x] `make bench` — `go test ./... -bench=. -benchmem`
+- [x] `make vet` — `go vet ./...`
+- [x] `make lint` — `golangci-lint run`（未インストールならスキップ）
+- [x] `make fmt` — `gofmt -w .` + `goimports -w .`
+- [x] `make clean` — バイナリ・キャッシュ削除
+- [x] `make quality` — `fmt` + `vet` + `lint` + `test` を一括実行
+- [x] `make all` — `quality` + `build`（デフォルトターゲット）
+- [x] `make cover` — カバレッジレポート生成（`go test -coverprofile` + `go tool cover -html`）
+
+### Task 0.2: CI用ヘルパー
+- [ ] `.golangci.yml` — lintルール設定（unused, errcheck, govet, staticcheck等）
+- [ ] `.editorconfig` — インデント・改行コード統一
+
+### Task 0.3: Git hooks
+- [ ] `make install-hooks` — pre-commit hookのインストール（`make quality` を実行）
+- [ ] `.gitignore` の整備（`uzura` バイナリ、`*.out`, `coverage.html` 等を追加）
+
+---

@@ -11,7 +11,7 @@ func BenchmarkParse100KB(b *testing.B) {
 	var sb strings.Builder
 	sb.WriteString("<html><head><title>Bench</title></head><body>")
 	for i := 0; sb.Len() < 100_000; i++ {
-		sb.WriteString(fmt.Sprintf(`<div class="item" id="item-%d"><p>Paragraph %d with <a href="/link/%d">a link</a> and some text content.</p></div>`, i, i, i))
+		fmt.Fprintf(&sb, `<div class="item" id="item-%d"><p>Paragraph %d with <a href="/link/%d">a link</a> and some text content.</p></div>`, i, i, i)
 	}
 	sb.WriteString("</body></html>")
 	html := sb.String()

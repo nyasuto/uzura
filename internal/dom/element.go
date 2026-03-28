@@ -104,17 +104,17 @@ func (e *Element) ClassName() string {
 
 // AppendChild adds a child node to this element.
 func (e *Element) AppendChild(child Node) Node {
-	return e.baseNode.appendChild(e, child)
+	return e.appendChild(e, child)
 }
 
 // RemoveChild removes a child node from this element.
 func (e *Element) RemoveChild(child Node) Node {
-	return e.baseNode.removeChild(child)
+	return e.removeChild(child)
 }
 
 // InsertBefore inserts newChild before refChild.
 func (e *Element) InsertBefore(newChild, refChild Node) Node {
-	return e.baseNode.insertBefore(e, newChild, refChild)
+	return e.insertBefore(e, newChild, refChild)
 }
 
 // TextContent returns the concatenated text content of all descendants.

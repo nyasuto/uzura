@@ -6,11 +6,11 @@ import (
 
 func TestAppendChild(t *testing.T) {
 	tests := []struct {
-		name       string
-		setup      func() (parent *Element, child Node)
-		wantFirst  string
-		wantLast   string
-		wantCount  int
+		name      string
+		setup     func() (parent *Element, child Node)
+		wantFirst string
+		wantLast  string
+		wantCount int
 	}{
 		{
 			name: "append single child",

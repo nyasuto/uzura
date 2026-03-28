@@ -132,6 +132,7 @@ func TestParseComment(t *testing.T) {
 	body := doc.Body()
 	if body == nil {
 		t.Fatal("Body should not be nil")
+		return
 	}
 
 	// First child of body should be the comment
