@@ -26,11 +26,11 @@
 - [x] テスト: 生成、内容get/set、クローン
 
 ### Task 1.4: Element Implementation
-- [ ] `Element` 構造体（`baseNode` 埋め込み）
-- [ ] `TagName`（大文字）と `LocalName`（小文字）
-- [ ] 属性: `GetAttribute`, `SetAttribute`, `HasAttribute`, `RemoveAttribute`
-- [ ] `Id()`, `ClassName()` ショートハンド
-- [ ] テスト: 属性CRUD、大文字小文字
+- [x] `Element` 構造体（`baseNode` 埋め込み）
+- [x] `TagName`（大文字）と `LocalName`（小文字）
+- [x] 属性: `GetAttribute`, `SetAttribute`, `HasAttribute`, `RemoveAttribute`
+- [x] `Id()`, `ClassName()` ショートハンド
+- [x] テスト: 属性CRUD、大文字小文字
 
 ### Task 1.5: Document Implementation
 - [ ] `Document` 構造体（`baseNode` 埋め込み）

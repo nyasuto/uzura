@@ -30,6 +30,78 @@ func (e *Element) NodeName() string {
 	return strings.ToUpper(e.localName)
 }
 
+// TagName returns the tag name in uppercase (alias for NodeName).
+func (e *Element) TagName() string {
+	return strings.ToUpper(e.localName)
+}
+
+// LocalName returns the tag name in lowercase.
+func (e *Element) LocalName() string {
+	return e.localName
+}
+
+// GetAttribute returns the value of the named attribute, or empty string if not present.
+func (e *Element) GetAttribute(name string) string {
+	name = strings.ToLower(name)
+	for _, a := range e.attributes {
+		if a.Key == name {
+			return a.Val
+		}
+	}
+	return ""
+}
+
+// SetAttribute sets the value of the named attribute.
+func (e *Element) SetAttribute(name, value string) {
+	name = strings.ToLower(name)
+	for i, a := range e.attributes {
+		if a.Key == name {
+			e.attributes[i].Val = value
+			return
+		}
+	}
+	e.attributes = append(e.attributes, html.Attribute{Key: name, Val: value})
+}
+
+// HasAttribute returns true if the element has the named attribute.
+func (e *Element) HasAttribute(name string) bool {
+	name = strings.ToLower(name)
+	for _, a := range e.attributes {
+		if a.Key == name {
+			return true
+		}
+	}
+	return false
+}
+
+// RemoveAttribute removes the named attribute.
+func (e *Element) RemoveAttribute(name string) {
+	name = strings.ToLower(name)
+	for i, a := range e.attributes {
+		if a.Key == name {
+			e.attributes = append(e.attributes[:i], e.attributes[i+1:]...)
+			return
+		}
+	}
+}
+
+// Attributes returns a copy of this element's attributes.
+func (e *Element) Attributes() []html.Attribute {
+	cp := make([]html.Attribute, len(e.attributes))
+	copy(cp, e.attributes)
+	return cp
+}
+
+// Id returns the value of the "id" attribute.
+func (e *Element) Id() string {
+	return e.GetAttribute("id")
+}
+
+// ClassName returns the value of the "class" attribute.
+func (e *Element) ClassName() string {
+	return e.GetAttribute("class")
+}
+
 // AppendChild adds a child node to this element.
 func (e *Element) AppendChild(child Node) Node {
 	return e.baseNode.appendChild(e, child)
