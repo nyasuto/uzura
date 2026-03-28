@@ -4,6 +4,7 @@ package network
 import (
 	"fmt"
 	"net/http"
+	"net/http/cookiejar"
 	"time"
 )
 
@@ -20,8 +21,9 @@ const (
 
 // FetcherOptions configures a Fetcher.
 type FetcherOptions struct {
-	UserAgent string
-	Timeout   time.Duration
+	UserAgent     string
+	Timeout       time.Duration
+	EnableCookies bool
 }
 
 // Fetcher performs HTTP requests with redirect tracking and timeouts.
@@ -55,6 +57,11 @@ func NewFetcher(opts *FetcherOptions) *Fetcher {
 			}
 			return nil
 		},
+	}
+
+	if opts != nil && opts.EnableCookies {
+		jar, _ := cookiejar.New(nil)
+		client.Jar = jar
 	}
 
 	return &Fetcher{

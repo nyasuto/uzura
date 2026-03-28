@@ -125,9 +125,9 @@
 
 ### Task 2.3: Cookie Jar
 
-- [ ] `net/http/cookiejar` 統合
-- [ ] セッション内のCookie永続化
-- [ ] テスト: set/get, リダイレクト跨ぎ
+- [x] `net/http/cookiejar` 統合
+- [x] セッション内のCookie永続化
+- [x] テスト: set/get, リダイレクト跨ぎ
 
 ### Task 2.4: Document Loading Pipeline
 
