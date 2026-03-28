@@ -37,6 +37,18 @@ func (s *Session) SendEvent(method string, params interface{}) error {
 	return s.conn.Write(s.ctx, websocket.MessageText, evtData)
 }
 
+// WriteJSON serializes v as JSON and writes it to the WebSocket connection.
+// It is safe for concurrent use.
+func (s *Session) WriteJSON(v interface{}) error {
+	data, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.conn.Write(s.ctx, websocket.MessageText, data)
+}
+
 // SessionHandler processes a CDP method call with access to the session.
 // It returns a result, optional post-response events, and an error.
 type SessionHandler func(session *Session, params json.RawMessage) (json.RawMessage, []Event, error)

@@ -11,16 +11,19 @@ import (
 func Setup(s *Server) *page.Page {
 	runtimeDomain := NewRuntimeDomain(nil)
 	networkDomain := NewNetworkDomain(nil)
+	fetchDomain := NewFetchDomain(nil)
 
 	fetcher := network.NewFetcher(nil)
 	p := page.New(&page.Options{
-		Fetcher:         fetcher,
-		VMOptions:       []js.Option{js.WithConsoleCallback(runtimeDomain.ConsoleCallback())},
-		NetworkObserver: networkDomain.Observer(),
+		Fetcher:            fetcher,
+		VMOptions:          []js.Option{js.WithConsoleCallback(runtimeDomain.ConsoleCallback())},
+		NetworkObserver:    networkDomain.Observer(),
+		RequestInterceptor: fetchDomain.Interceptor(),
 	})
 
 	runtimeDomain.SetPage(p)
 	networkDomain.SetPage(p)
+	fetchDomain.SetPage(p)
 
 	pageDomain := NewPageDomain(p)
 	domDomain := NewDOMDomain(p)
@@ -29,6 +32,7 @@ func Setup(s *Server) *page.Page {
 	domDomain.Register(s)
 	runtimeDomain.Register(s)
 	networkDomain.Register(s)
+	fetchDomain.Register(s)
 	registerStubs(s)
 
 	return p

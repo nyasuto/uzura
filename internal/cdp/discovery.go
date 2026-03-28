@@ -67,6 +67,7 @@ func (s *Server) handleProtocol(w http.ResponseWriter, _ *http.Request) {
 			{Name: "DOM", Version: "1.3"},
 			{Name: "Runtime", Version: "1.3"},
 			{Name: "Network", Version: "1.3"},
+			{Name: "Fetch", Version: "1.3"},
 		},
 	}
 	writeJSONHTTP(w, info)

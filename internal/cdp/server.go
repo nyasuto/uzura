@@ -141,19 +141,24 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 			resp := Response{
 				Error: &RPCError{Code: -32700, Message: "parse error"},
 			}
-			s.writeJSON(ctx, conn, resp)
+			_ = sess.WriteJSON(resp)
 			continue
 		}
 
-		resp, events := s.dispatch(sess, req)
-		resp.SessionID = req.SessionID
-		s.writeJSON(ctx, conn, resp)
-		for _, evt := range events {
-			if evt.SessionID == "" {
-				evt.SessionID = req.SessionID
+		// Dispatch in a goroutine so long-running handlers
+		// (e.g. Page.navigate with request interception) do not
+		// block the read loop from processing other messages.
+		go func(req Request) {
+			resp, events := s.dispatch(sess, req)
+			resp.SessionID = req.SessionID
+			_ = sess.WriteJSON(resp)
+			for _, evt := range events {
+				if evt.SessionID == "" {
+					evt.SessionID = req.SessionID
+				}
+				_ = sess.WriteJSON(evt)
 			}
-			s.writeJSON(ctx, conn, evt)
-		}
+		}(req)
 	}
 }
 
@@ -193,12 +198,4 @@ func (s *Server) dispatch(sess *Session, req Request) (Response, []Event) {
 		ID:    req.ID,
 		Error: &RPCError{Code: -32601, Message: fmt.Sprintf("method not found: %s", req.Method)},
 	}, nil
-}
-
-func (s *Server) writeJSON(ctx context.Context, conn *websocket.Conn, v interface{}) {
-	data, err := json.Marshal(v)
-	if err != nil {
-		return
-	}
-	_ = conn.Write(ctx, websocket.MessageText, data)
 }
