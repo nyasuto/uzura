@@ -33,6 +33,10 @@ test: ## Run all tests with race detector
 bench: ## Run benchmarks
 	go test ./... -bench=. -benchmem
 
+.PHONY: bench-report
+bench-report: ## Run benchmarks and format as Markdown report
+	bash scripts/bench-report.sh
+
 .PHONY: quality
 quality: fmt lint test ## Run fmt + lint + test
 

@@ -15,5 +15,8 @@ coverage.html
 # WPT test data (downloaded by scripts/wpt-fetch.sh)
 testdata/wpt/
 
+# Benchmark results
+bench-results.txt
+
 # OS
 .DS_Store
