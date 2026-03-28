@@ -118,10 +118,10 @@
 
 ### Task 2.2: Content-Type and Encoding
 
-- [ ] Content-Typeヘッダーからcharset検出
-- [ ] `<meta charset>` タグからのcharset検出
-- [ ] `golang.org/x/text/encoding` でUTF-8変換
-- [ ] テスト: Shift-JIS, EUC-JP, ISO-8859-1
+- [x] Content-Typeヘッダーからcharset検出
+- [x] `<meta charset>` タグからのcharset検出
+- [x] `golang.org/x/text/encoding` でUTF-8変換
+- [x] テスト: Shift-JIS, EUC-JP, ISO-8859-1
 
 ### Task 2.3: Cookie Jar
 
