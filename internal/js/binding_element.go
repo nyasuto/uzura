@@ -119,6 +119,7 @@ func (b *docBinder) wrapElement(el *dom.Element) goja.Value {
 	b.addNodeMethods(obj, el)
 	b.addClassListProperty(obj, el)
 	b.addDatasetProperty(obj, el)
+	b.addEventTargetMethods(obj, el)
 	_ = obj.Set("_goNode", el)
 
 	return b.vm.runtime.ToValue(obj)

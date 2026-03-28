@@ -7,13 +7,15 @@ import (
 
 // BindDocument registers the document object and element proxies on the VM.
 func BindDocument(vm *VM, doc *dom.Document) {
-	b := &docBinder{vm: vm, doc: doc}
+	b := &docBinder{vm: vm, doc: doc, events: newEventStore()}
+	b.setupEventConstructor()
 	_ = vm.runtime.Set("document", b.makeDocumentObj())
 }
 
 type docBinder struct {
-	vm  *VM
-	doc *dom.Document
+	vm     *VM
+	doc    *dom.Document
+	events *eventStore
 }
 
 func (b *docBinder) makeDocumentObj() *goja.Object {
@@ -105,6 +107,8 @@ func (b *docBinder) makeDocumentObj() *goja.Object {
 		frag := b.doc.CreateDocumentFragment()
 		return b.wrapFragment(frag)
 	})
+
+	b.addEventTargetMethods(obj, b.doc)
 
 	return obj
 }
