@@ -33,11 +33,11 @@
 - [x] テスト: 属性CRUD、大文字小文字
 
 ### Task 1.5: Document Implementation
-- [ ] `Document` 構造体（`baseNode` 埋め込み）
-- [ ] `DocumentElement()`, `Head()`, `Body()`, `Title()`
-- [ ] `CreateElement`, `CreateTextNode`, `CreateComment`
-- [ ] `GetElementById`, `GetElementsByTagName`, `GetElementsByClassName`
-- [ ] テスト: 要素生成、id/tag/classでの検索
+- [x] `Document` 構造体（`baseNode` 埋め込み）
+- [x] `DocumentElement()`, `Head()`, `Body()`, `Title()`
+- [x] `CreateElement`, `CreateTextNode`, `CreateComment`
+- [x] `GetElementById`, `GetElementsByTagName`, `GetElementsByClassName`
+- [x] テスト: 要素生成、id/tag/classでの検索
 
 ### Task 1.6: HTML Parser → DOM Tree Conversion
 - [ ] `internal/html/parser.go` — `golang.org/x/net/html` のアダプター
