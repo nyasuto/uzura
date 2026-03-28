@@ -168,7 +168,7 @@
 
 ### Task 3.3: matches / closest
 
-- [ ] `Element.Matches()`, `Element.Closest()`
+- [x] `Element.Matches()`, `Element.Closest()`
 
 ### Task 3.4: Phase 3 検証
 

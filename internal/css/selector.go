@@ -11,6 +11,8 @@ import (
 func init() {
 	dom.SelectorQueryAll = QuerySelectorAll
 	dom.SelectorQuery = QuerySelector
+	dom.SelectorMatches = Matches
+	dom.SelectorClosest = Closest
 }
 
 // Selector is a compiled CSS selector.
@@ -71,6 +73,66 @@ func (s *Selector) Query(root dom.Node) *dom.Element {
 		return nil
 	}
 	return nodeMap[match]
+}
+
+// Matches reports whether the element matches the CSS selector.
+func Matches(elem *dom.Element, sel string) (bool, error) {
+	compiled, err := cascadia.Compile(sel)
+	if err != nil {
+		return false, err
+	}
+	nodeMap := make(map[*html.Node]*dom.Element)
+	// Build the full tree from the element's owner document or from the element
+	// itself so that structural selectors (e.g. :first-child) work correctly.
+	var root dom.Node = elem
+	if doc := elem.OwnerDocument(); doc != nil {
+		root = doc
+	}
+	htmlRoot := toHTMLNode(root, nodeMap)
+
+	// Find the html.Node that corresponds to elem
+	target := findHTMLNode(htmlRoot, nodeMap, elem)
+	if target == nil {
+		return false, nil
+	}
+	return compiled.Match(target), nil
+}
+
+// Closest returns the closest ancestor (or self) matching the CSS selector, or nil.
+func Closest(elem *dom.Element, sel string) (*dom.Element, error) {
+	compiled, err := cascadia.Compile(sel)
+	if err != nil {
+		return nil, err
+	}
+	nodeMap := make(map[*html.Node]*dom.Element)
+	var root dom.Node = elem
+	if doc := elem.OwnerDocument(); doc != nil {
+		root = doc
+	}
+	htmlRoot := toHTMLNode(root, nodeMap)
+
+	target := findHTMLNode(htmlRoot, nodeMap, elem)
+	if target == nil {
+		return nil, nil
+	}
+
+	// Walk up from target checking each ancestor
+	for n := target; n != nil; n = n.Parent {
+		if n.Type == html.ElementNode && compiled.Match(n) {
+			return nodeMap[n], nil
+		}
+	}
+	return nil, nil
+}
+
+// findHTMLNode finds the html.Node that maps to the given dom.Element.
+func findHTMLNode(root *html.Node, nodeMap map[*html.Node]*dom.Element, target *dom.Element) *html.Node {
+	for hn, elem := range nodeMap {
+		if elem == target {
+			return hn
+		}
+	}
+	return nil
 }
 
 // toHTMLNode converts a dom.Node tree into an html.Node tree.

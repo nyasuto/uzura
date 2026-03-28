@@ -146,6 +146,22 @@ func (e *Element) QuerySelector(sel string) (*Element, error) {
 	return SelectorQuery(e, sel)
 }
 
+// Matches reports whether this element matches the given CSS selector.
+func (e *Element) Matches(sel string) (bool, error) {
+	if SelectorMatches == nil {
+		return false, nil
+	}
+	return SelectorMatches(e, sel)
+}
+
+// Closest returns the closest ancestor element (or self) matching the selector.
+func (e *Element) Closest(sel string) (*Element, error) {
+	if SelectorClosest == nil {
+		return nil, nil
+	}
+	return SelectorClosest(e, sel)
+}
+
 // QuerySelectorAll returns all descendant elements matching the CSS selector.
 func (e *Element) QuerySelectorAll(sel string) ([]*Element, error) {
 	if SelectorQueryAll == nil {

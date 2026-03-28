@@ -206,6 +206,107 @@ func TestElementQuerySelector(t *testing.T) {
 	}
 }
 
+func TestMatches(t *testing.T) {
+	doc := parseHTML(t, `<html><body>
+		<div id="target" class="foo bar">text</div>
+	</body></html>`)
+
+	target := doc.GetElementById("target")
+	if target == nil {
+		t.Fatal("target not found")
+	}
+
+	tests := []struct {
+		name string
+		sel  string
+		want bool
+	}{
+		{"class match", ".foo", true},
+		{"multi class", ".foo.bar", true},
+		{"id match", "#target", true},
+		{"tag match", "div", true},
+		{"no match", ".baz", false},
+		{"wrong tag", "span", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := Matches(target, tt.sel)
+			if err != nil {
+				t.Fatalf("Matches error: %v", err)
+			}
+			if got != tt.want {
+				t.Errorf("Matches(%q) = %v, want %v", tt.sel, got, tt.want)
+			}
+		})
+	}
+
+	// Also test via Element.Matches
+	got, err := target.Matches(".foo")
+	if err != nil {
+		t.Fatalf("Element.Matches error: %v", err)
+	}
+	if !got {
+		t.Error("Element.Matches('.foo') should be true")
+	}
+}
+
+func TestClosest(t *testing.T) {
+	doc := parseHTML(t, `<html><body>
+		<div class="outer">
+			<div class="inner">
+				<span id="deep">text</span>
+			</div>
+		</div>
+	</body></html>`)
+
+	deep := doc.GetElementById("deep")
+	if deep == nil {
+		t.Fatal("deep not found")
+	}
+
+	tests := []struct {
+		name      string
+		sel       string
+		wantClass string
+		wantNil   bool
+	}{
+		{"self", "span", "", false},
+		{"parent", ".inner", "inner", false},
+		{"ancestor", ".outer", "outer", false},
+		{"body", "body", "", false},
+		{"no match", ".nonexistent", "", true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := Closest(deep, tt.sel)
+			if err != nil {
+				t.Fatalf("Closest error: %v", err)
+			}
+			if tt.wantNil {
+				if result != nil {
+					t.Errorf("expected nil, got %v", result)
+				}
+				return
+			}
+			if result == nil {
+				t.Fatal("expected a result, got nil")
+			}
+			if tt.wantClass != "" && result.ClassName() != tt.wantClass {
+				t.Errorf("got class=%q, want %q", result.ClassName(), tt.wantClass)
+			}
+		})
+	}
+
+	// Also test via Element.Closest
+	result, err := deep.Closest(".outer")
+	if err != nil {
+		t.Fatalf("Element.Closest error: %v", err)
+	}
+	if result == nil || result.ClassName() != "outer" {
+		t.Errorf("Element.Closest('.outer') unexpected result")
+	}
+}
+
 func TestPseudoClassSelectors(t *testing.T) {
 	doc := parseHTML(t, `<html><body>
 		<ul>
