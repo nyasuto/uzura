@@ -118,6 +118,9 @@ func (p *Page) Navigate(ctx context.Context, url string) error {
 		Timestamp: now(),
 	})
 
+	fetchURL := url
+	var headerOverrides http.Header
+
 	// Request interception hook: if an interceptor is set, pause and wait
 	// for its decision before proceeding with the fetch.
 	if p.requestInterceptor != nil {
@@ -125,67 +128,104 @@ func (p *Page) Navigate(ctx context.Context, url string) error {
 			RequestID: reqID,
 			URL:       url,
 			Method:    http.MethodGet,
+			Stage:     StageRequest,
 		})
 		if iErr != nil {
-			p.emit(NetworkEvent{
-				Type:      NetworkLoadingFailed,
-				RequestID: reqID,
-				URL:       url,
-				Timestamp: now(),
-				ErrorText: iErr.Error(),
-			})
+			p.emitFailed(reqID, url, now(), iErr.Error())
 			return fmt.Errorf("navigate %s: intercept: %w", url, iErr)
 		}
-		if result != nil && result.Action == InterceptFail {
-			reason := result.ErrorReason
-			if reason == "" {
-				reason = "BlockedByClient"
+		if result != nil {
+			switch result.Action {
+			case InterceptFail:
+				reason := result.ErrorReason
+				if reason == "" {
+					reason = "BlockedByClient"
+				}
+				p.emitFailed(reqID, url, now(), reason)
+				return fmt.Errorf("navigate %s: blocked by client (%s)", url, reason)
+			case InterceptFulfill:
+				return p.handleFulfill(reqID, url, now, result)
+			case InterceptContinue:
+				if result.URL != "" {
+					fetchURL = result.URL
+				}
+				if result.Headers != nil {
+					headerOverrides = result.Headers
+				}
 			}
-			p.emit(NetworkEvent{
-				Type:      NetworkLoadingFailed,
-				RequestID: reqID,
-				URL:       url,
-				Timestamp: now(),
-				ErrorText: reason,
-			})
-			return fmt.Errorf("navigate %s: blocked by client (%s)", url, reason)
 		}
 	}
 
-	resp, err := p.fetcher.FetchContext(ctx, url)
+	resp, err := p.fetchWithOverrides(ctx, fetchURL, headerOverrides)
 	if err != nil {
-		p.emit(NetworkEvent{
-			Type:      NetworkLoadingFailed,
-			RequestID: reqID,
-			URL:       url,
-			Timestamp: now(),
-			ErrorText: err.Error(),
-		})
+		p.emitFailed(reqID, url, now(), err.Error())
 		return fmt.Errorf("navigate %s: %w", url, err)
 	}
 	defer resp.Body.Close()
 
-	p.emit(NetworkEvent{
-		Type:        NetworkResponseReceived,
-		RequestID:   reqID,
-		URL:         resp.Request.URL.String(),
-		Timestamp:   now(),
-		StatusCode:  resp.StatusCode,
-		StatusText:  http.StatusText(resp.StatusCode),
-		MimeType:    mimeFromResponse(resp),
-		RespHeaders: resp.Header,
-	})
+	statusCode := resp.StatusCode
+	respHeaders := resp.Header
+	respURL := resp.Request.URL.String()
+	mimeType := mimeFromResponse(resp)
 
 	reader, err := network.DecodeResponse(resp)
 	if err != nil {
 		return fmt.Errorf("navigate decode %s: %w", url, err)
 	}
-
-	// Read body into buffer so we can store it for getResponseBody.
 	bodyBytes, err := io.ReadAll(reader)
 	if err != nil {
 		return fmt.Errorf("navigate read %s: %w", url, err)
 	}
+
+	// Response-stage interception: pause after response is received.
+	if p.requestInterceptor != nil {
+		result, iErr := p.requestInterceptor(ctx, InterceptedRequest{
+			RequestID:       reqID,
+			URL:             fetchURL,
+			Method:          http.MethodGet,
+			Stage:           StageResponse,
+			StatusCode:      statusCode,
+			ResponseHeaders: respHeaders,
+			Body:            bodyBytes,
+		})
+		if iErr != nil {
+			p.emitFailed(reqID, url, now(), iErr.Error())
+			return fmt.Errorf("navigate %s: response intercept: %w", url, iErr)
+		}
+		if result != nil {
+			switch result.Action {
+			case InterceptFail:
+				reason := result.ErrorReason
+				if reason == "" {
+					reason = "BlockedByClient"
+				}
+				p.emitFailed(reqID, url, now(), reason)
+				return fmt.Errorf("navigate %s: blocked by client (%s)", url, reason)
+			case InterceptFulfill:
+				return p.handleFulfill(reqID, url, now, result)
+			case InterceptContinue:
+				if result.RespStatusCode > 0 {
+					statusCode = result.RespStatusCode
+				}
+				if result.RespHeaders != nil {
+					for k, v := range result.RespHeaders {
+						respHeaders.Set(k, v)
+					}
+				}
+			}
+		}
+	}
+
+	p.emit(NetworkEvent{
+		Type:        NetworkResponseReceived,
+		RequestID:   reqID,
+		URL:         respURL,
+		Timestamp:   now(),
+		StatusCode:  statusCode,
+		StatusText:  http.StatusText(statusCode),
+		MimeType:    mimeType,
+		RespHeaders: respHeaders,
+	})
 
 	p.emit(NetworkEvent{
 		Type:              NetworkLoadingFinished,
@@ -210,21 +250,6 @@ func (p *Page) emit(evt NetworkEvent) {
 	if p.networkObserver != nil {
 		p.networkObserver(evt)
 	}
-}
-
-func mimeFromResponse(resp *http.Response) string {
-	ct := resp.Header.Get("Content-Type")
-	if ct == "" {
-		return "text/html"
-	}
-	// Extract MIME type before parameters (charset etc.).
-	for i, c := range ct {
-		if c == ';' {
-			return ct[:i]
-		}
-		_ = i
-	}
-	return ct
 }
 
 // SetNetworkObserver sets the network observer callback.

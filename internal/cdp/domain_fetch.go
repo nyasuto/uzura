@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
+	"net/http"
 	"sync"
 
 	"github.com/nyasuto/uzura/internal/page"
@@ -22,6 +22,15 @@ type FetchDomain struct {
 
 	// pending maps requestId → channel for sending the intercept decision.
 	pending map[string]chan interceptDecision
+
+	// pausedResponses stores response data for requests paused at response stage.
+	pausedResponses map[string]*pausedResponse
+}
+
+type pausedResponse struct {
+	statusCode int
+	headers    http.Header
+	body       []byte
 }
 
 // RequestPattern is a CDP Fetch.RequestPattern.
@@ -33,13 +42,27 @@ type RequestPattern struct {
 type interceptDecision struct {
 	action      page.InterceptAction
 	errorReason string
+
+	// continueRequest overrides.
+	url     string
+	headers map[string]string
+
+	// fulfillRequest fields.
+	responseCode    int
+	responseHeaders map[string]string
+	responseBody    []byte
+
+	// continueResponse overrides.
+	respStatusCode int
+	respHeaders    map[string]string
 }
 
 // NewFetchDomain creates a FetchDomain.
 func NewFetchDomain(p *page.Page) *FetchDomain {
 	return &FetchDomain{
-		page:    p,
-		pending: make(map[string]chan interceptDecision),
+		page:            p,
+		pending:         make(map[string]chan interceptDecision),
+		pausedResponses: make(map[string]*pausedResponse),
 	}
 }
 
@@ -54,6 +77,9 @@ func (d *FetchDomain) Register(s *Server) {
 	s.HandleSession("Fetch.disable", d.disable)
 	s.HandleSession("Fetch.continueRequest", d.continueRequest)
 	s.HandleSession("Fetch.failRequest", d.failRequest)
+	s.HandleSession("Fetch.fulfillRequest", d.fulfillRequest)
+	s.HandleSession("Fetch.getResponseBody", d.getResponseBody)
+	s.HandleSession("Fetch.continueResponse", d.continueResponse)
 }
 
 // Interceptor returns a RequestInterceptor for use with page.Options.
@@ -103,7 +129,9 @@ func (d *FetchDomain) disable(sess *Session, _ json.RawMessage) (json.RawMessage
 
 func (d *FetchDomain) continueRequest(sess *Session, params json.RawMessage) (json.RawMessage, []Event, error) {
 	var p struct {
-		RequestID string `json:"requestId"`
+		RequestID string        `json:"requestId"`
+		URL       string        `json:"url"`
+		Headers   []headerEntry `json:"headers"`
 	}
 	if err := json.Unmarshal(params, &p); err != nil {
 		return nil, nil, fmt.Errorf("invalid params: %w", err)
@@ -120,7 +148,11 @@ func (d *FetchDomain) continueRequest(sess *Session, params json.RawMessage) (js
 		return nil, nil, fmt.Errorf("no intercepted request with id %s", p.RequestID)
 	}
 
-	ch <- interceptDecision{action: page.InterceptContinue}
+	decision := interceptDecision{action: page.InterceptContinue, url: p.URL}
+	if len(p.Headers) > 0 {
+		decision.headers = headerEntriesToMap(p.Headers)
+	}
+	ch <- decision
 
 	r, err := json.Marshal(struct{}{})
 	return r, nil, err
@@ -161,94 +193,64 @@ func (d *FetchDomain) intercept(ctx context.Context, req page.InterceptedRequest
 	d.mu.Lock()
 	if !d.enabled {
 		d.mu.Unlock()
-		return nil, nil // not enabled, pass through
+		return nil, nil
 	}
 
-	if !d.matchesAny(req.URL) {
+	stage := "Request"
+	if req.Stage == page.StageResponse {
+		stage = "Response"
+	}
+	if !d.matchesAnyStage(req.URL, stage) {
 		d.mu.Unlock()
-		return nil, nil // no pattern matched, pass through
+		return nil, nil
 	}
 
 	sess := d.session
 	ch := make(chan interceptDecision, 1)
 	d.pending[req.RequestID] = ch
+
+	// Store response data for getResponseBody at response stage.
+	if req.Stage == page.StageResponse {
+		d.pausedResponses[req.RequestID] = &pausedResponse{
+			statusCode: req.StatusCode,
+			headers:    req.ResponseHeaders,
+			body:       req.Body,
+		}
+	}
 	d.mu.Unlock()
 
-	// Send Fetch.requestPaused event to the CDP client.
-	if sess != nil {
-		_ = sess.SendEvent("Fetch.requestPaused", map[string]interface{}{
-			"requestId": req.RequestID,
-			"request": map[string]interface{}{
-				"url":     req.URL,
-				"method":  req.Method,
-				"headers": flattenHeaders(req.Headers),
-			},
-			"frameId":      "main",
-			"resourceType": "Document",
-			"networkId":    req.RequestID,
-		})
+	// Build Fetch.requestPaused event payload.
+	evt := map[string]interface{}{
+		"requestId": req.RequestID,
+		"request": map[string]interface{}{
+			"url":     req.URL,
+			"method":  req.Method,
+			"headers": flattenHeaders(req.Headers),
+		},
+		"frameId":      "main",
+		"resourceType": "Document",
+		"networkId":    req.RequestID,
+	}
+	if req.Stage == page.StageResponse {
+		evt["responseStatusCode"] = req.StatusCode
+		evt["responseHeaders"] = headerToEntries(req.ResponseHeaders)
 	}
 
-	// Wait for the client decision or context cancellation.
+	if sess != nil {
+		_ = sess.SendEvent("Fetch.requestPaused", evt)
+	}
+
 	select {
 	case decision := <-ch:
-		if decision.action == page.InterceptFail {
-			return &page.InterceptResult{
-				Action:      page.InterceptFail,
-				ErrorReason: decision.errorReason,
-			}, nil
-		}
-		return nil, nil // continue
+		d.mu.Lock()
+		delete(d.pausedResponses, req.RequestID)
+		d.mu.Unlock()
+		return d.decisionToResult(decision), nil
 	case <-ctx.Done():
 		d.mu.Lock()
 		delete(d.pending, req.RequestID)
+		delete(d.pausedResponses, req.RequestID)
 		d.mu.Unlock()
 		return nil, ctx.Err()
 	}
 }
-
-// matchesAny checks if the URL matches any of the configured patterns.
-// Must be called with d.mu held.
-func (d *FetchDomain) matchesAny(url string) bool {
-	for _, p := range d.patterns {
-		if matchURLPattern(p.URLPattern, url) {
-			return true
-		}
-	}
-	return false
-}
-
-// matchURLPattern implements simple CDP URL pattern matching.
-// "*" matches everything. Other patterns support leading/trailing wildcards.
-func matchURLPattern(pattern, url string) bool {
-	if pattern == "*" || pattern == "" {
-		return true
-	}
-
-	// Simple glob: only support * at the start and/or end.
-	if strings.HasPrefix(pattern, "*") && strings.HasSuffix(pattern, "*") {
-		return strings.Contains(url, pattern[1:len(pattern)-1])
-	}
-	if strings.HasPrefix(pattern, "*") {
-		return strings.HasSuffix(url, pattern[1:])
-	}
-	if strings.HasSuffix(pattern, "*") {
-		return strings.HasPrefix(url, pattern[:len(pattern)-1])
-	}
-
-	return url == pattern
-}
-
-func flattenHeaders(h map[string][]string) map[string]string {
-	if h == nil {
-		return nil
-	}
-	flat := make(map[string]string, len(h))
-	for k, v := range h {
-		if len(v) > 0 {
-			flat[k] = v[0]
-		}
-	}
-	return flat
-}
-

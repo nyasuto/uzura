@@ -92,12 +92,24 @@ func (f *Fetcher) Fetch(url string) (*http.Response, error) {
 // FetchContext retrieves the resource at the given URL with context support.
 // The caller must close the response body.
 func (f *Fetcher) FetchContext(ctx context.Context, url string) (*http.Response, error) {
+	return f.FetchContextWithHeaders(ctx, url, nil)
+}
+
+// FetchContextWithHeaders retrieves the resource with optional header overrides.
+// Headers in extraHeaders are added to (or override) the default request headers.
+// The caller must close the response body.
+func (f *Fetcher) FetchContextWithHeaders(ctx context.Context, url string, extraHeaders http.Header) (*http.Response, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("creating request: %w", err)
 	}
 
 	req.Header.Set("User-Agent", f.userAgent)
+	for k, vals := range extraHeaders {
+		for _, v := range vals {
+			req.Header.Set(k, v)
+		}
+	}
 
 	resp, err := f.client.Do(req)
 	if err != nil {
