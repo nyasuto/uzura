@@ -131,9 +131,9 @@
 
 ### Task 2.4: Document Loading Pipeline
 
-- [ ] Fetch → Decode → Parse → Document パイプライン
-- [ ] エラーハンドリング（ネットワーク、タイムアウト、不正HTML）
-- [ ] httptest での結合テスト
+- [x] Fetch → Decode → Parse → Document パイプライン
+- [x] エラーハンドリング（ネットワーク、タイムアウト、不正HTML）
+- [x] httptest での結合テスト
 
 ### Task 2.5: CLI `fetch` コマンド
 
