@@ -37,6 +37,10 @@ bench: ## Run benchmarks
 bench-report: ## Run benchmarks and format as Markdown report
 	bash scripts/bench-report.sh
 
+.PHONY: bench-html
+bench-html: bench-report ## Generate HTML benchmark report
+	bash scripts/bench-visualize.sh bench-results.txt bench-report.html
+
 .PHONY: quality
 quality: fmt lint test ## Run fmt + lint + test
 

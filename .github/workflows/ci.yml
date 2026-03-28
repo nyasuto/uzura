@@ -52,11 +52,56 @@ jobs:
           go-version: "1.26"
 
       - name: Run benchmarks
-        run: go test ./... -bench=. -benchmem -count=5 > benchmark.txt
+        run: go test ./internal/bench/ -bench=. -benchmem -count=5 > benchmark.txt
+
+      - name: Generate Markdown report
+        run: bash scripts/bench-report.sh benchmark.txt
+
+      - name: Generate HTML report
+        run: bash scripts/bench-visualize.sh benchmark.txt bench-report.html
 
       - name: Upload benchmark results
         uses: actions/upload-artifact@v4
         with:
           name: benchmark-${{ github.sha }}
-          path: benchmark.txt
+          path: |
+            benchmark.txt
+            bench-report.html
           retention-days: 90
+
+  benchmark-pr:
+    name: Benchmark (PR)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    needs: quality
+    permissions:
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "1.26"
+
+      - name: Run benchmarks
+        run: go test ./internal/bench/ -bench=. -benchmem -count=3 > benchmark.txt
+
+      - name: Format benchmark results
+        id: bench
+        run: |
+          {
+            echo 'report<<EOF'
+            bash scripts/bench-report.sh benchmark.txt 2>&1 | grep -A 999 '=== Uzura'
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Comment on PR
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: benchmark
+          message: |
+            ## Benchmark Results
+
+            ${{ steps.bench.outputs.report }}
+
+            <sub>Commit: ${{ github.sha }}</sub>

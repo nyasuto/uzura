@@ -17,6 +17,7 @@ testdata/wpt/
 
 # Benchmark results
 bench-results.txt
+bench-report.html
 
 # OS
 .DS_Store
