@@ -13,6 +13,9 @@ func runWPT() error {
 	wptDir := fs.String("wpt-dir", "testdata/wpt", "path to WPT checkout")
 	skipFile := fs.String("skip", "", "path to skip list file")
 	jsonOut := fs.Bool("json", false, "output results as JSON")
+	csvOut := fs.Bool("csv", false, "output results as CSV")
+	domains := fs.Bool("domains", false, "show per-domain breakdown")
+	baseline := fs.String("baseline", "", "path to baseline JSON for diff")
 
 	if err := fs.Parse(os.Args[2:]); err != nil {
 		return err
@@ -47,14 +50,43 @@ func runWPT() error {
 		}
 	}
 
+	// CSV output.
+	if *csvOut {
+		return summary.WriteCSV(os.Stdout)
+	}
+
+	// JSON output.
 	if *jsonOut {
 		return summary.WriteJSON(os.Stdout)
 	}
 
-	// Print summary to stdout.
+	// Text summary.
 	fmt.Printf("\n=== WPT Results ===\n")
 	fmt.Printf("Total: %d  Pass: %d  Fail: %d  Skip: %d  Timeout: %d\n",
 		summary.Total, summary.Pass, summary.Fail, summary.Skip, summary.Timeout)
 	fmt.Printf("Pass rate: %.1f%%\n", summary.PassRate())
+
+	// Domain breakdown.
+	if *domains {
+		summary.WriteDomainReport(os.Stdout)
+	}
+
+	// Baseline diff.
+	if *baseline != "" {
+		f, err := os.Open(*baseline)
+		if err != nil {
+			return fmt.Errorf("opening baseline: %w", err)
+		}
+		defer f.Close()
+
+		base, err := wpt.LoadSummary(f)
+		if err != nil {
+			return fmt.Errorf("loading baseline: %w", err)
+		}
+
+		diff := wpt.Diff(base, summary)
+		diff.WriteReport(os.Stdout)
+	}
+
 	return nil
 }
