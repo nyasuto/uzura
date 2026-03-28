@@ -86,8 +86,8 @@
 - [x] `make cover` — カバレッジレポート生成（`go test -coverprofile` + `go tool cover -html`）
 
 ### Task 0.2: CI用ヘルパー
-- [ ] `.golangci.yml` — lintルール設定（unused, errcheck, govet, staticcheck等）
-- [ ] `.editorconfig` — インデント・改行コード統一
+- [x] `.golangci.yml` — lintルール設定（unused, errcheck, govet, staticcheck等）
+- [x] `.editorconfig` — インデント・改行コード統一
 
 ### Task 0.3: Git hooks
 - [ ] `make install-hooks` — pre-commit hookのインストール（`make quality` を実行）

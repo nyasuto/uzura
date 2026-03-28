@@ -63,7 +63,7 @@ func printTree(w io.Writer, n dom.Node, depth int) {
 		if len(attrs) > 0 {
 			var parts []string
 			for _, a := range attrs {
-				parts = append(parts, fmt.Sprintf(`%s="%s"`, a.Key, a.Val))
+				parts = append(parts, fmt.Sprintf("%s=%q", a.Key, a.Val))
 			}
 			_, _ = fmt.Fprintf(w, "%s<%s %s>\n", indent, v.LocalName(), strings.Join(parts, " "))
 		} else {

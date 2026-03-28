@@ -125,7 +125,7 @@ func TestDocumentGetElementsByTagName(t *testing.T) {
 	}
 
 	all := doc.GetElementsByTagName("*")
-	// html, head, title, body, div, div, span = 7
+	// expected: html, head, title, body, div, div, span
 	if len(all) != 7 {
 		t.Errorf("GetElementsByTagName(*) returned %d, want 7", len(all))
 	}
