@@ -16,6 +16,7 @@ func runFetch() error {
 	format := fs.String("format", "text", "output format: text, json, html")
 	timeout := fs.Duration("timeout", network.DefaultTimeout, "request timeout")
 	userAgent := fs.String("user-agent", network.DefaultUserAgent, "User-Agent header")
+	obeyRobots := fs.Bool("obey-robots", false, "obey robots.txt rules")
 	if err := fs.Parse(os.Args[2:]); err != nil {
 		return err
 	}
@@ -29,6 +30,7 @@ func runFetch() error {
 		UserAgent:     *userAgent,
 		Timeout:       *timeout,
 		EnableCookies: true,
+		ObeyRobots:    *obeyRobots,
 	}
 
 	// Validate timeout

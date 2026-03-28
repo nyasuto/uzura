@@ -24,12 +24,15 @@ type FetcherOptions struct {
 	UserAgent     string
 	Timeout       time.Duration
 	EnableCookies bool
+	ObeyRobots    bool
 }
 
 // Fetcher performs HTTP requests with redirect tracking and timeouts.
 type Fetcher struct {
-	client    *http.Client
-	userAgent string
+	client     *http.Client
+	userAgent  string
+	obeyRobots bool
+	robots     robotsCache
 }
 
 // NewFetcher creates a new Fetcher with the given options.
@@ -64,9 +67,16 @@ func NewFetcher(opts *FetcherOptions) *Fetcher {
 		client.Jar = jar
 	}
 
+	obeyRobots := false
+	if opts != nil {
+		obeyRobots = opts.ObeyRobots
+	}
+
 	return &Fetcher{
-		client:    client,
-		userAgent: ua,
+		client:     client,
+		userAgent:  ua,
+		obeyRobots: obeyRobots,
+		robots:     robotsCache{rules: make(map[string]*robotsRules)},
 	}
 }
 

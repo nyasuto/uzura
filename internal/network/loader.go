@@ -10,6 +10,12 @@ import (
 // LoadDocument fetches a URL, decodes the response body to UTF-8,
 // parses the HTML, and returns a DOM Document.
 func (f *Fetcher) LoadDocument(url string) (*dom.Document, error) {
+	if f.obeyRobots {
+		if err := f.checkRobots(url); err != nil {
+			return nil, err
+		}
+	}
+
 	resp, err := f.Fetch(url)
 	if err != nil {
 		return nil, fmt.Errorf("loading %s: %w", url, err)

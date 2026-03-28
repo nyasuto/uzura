@@ -143,8 +143,8 @@
 
 ### Task 2.6: robots.txt
 
-- [ ] `--obey-robots` フラグ
-- [ ] robots.txtパースとallow/disallowチェック
+- [x] `--obey-robots` フラグ
+- [x] robots.txtパースとallow/disallowチェック
 
 ### Task 2.7: Phase 2 検証
 
