@@ -43,7 +43,9 @@ func (t *Text) TextContent() string {
 
 // SetTextContent sets the text data.
 func (t *Text) SetTextContent(text string) {
+	oldValue := t.Data
 	t.Data = text
+	queueCharacterDataMutation(t, oldValue)
 }
 
 // CloneNode returns a copy of this Text node. The deep parameter is accepted

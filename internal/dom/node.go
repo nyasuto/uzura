@@ -135,6 +135,7 @@ func (b *baseNode) appendSingleChild(self, child Node) {
 	if p := child.ParentNode(); p != nil {
 		p.RemoveChild(child)
 	}
+	prevSibling := b.lastChild
 	child.setParent(self)
 	if b.firstChild == nil {
 		b.firstChild = child
@@ -143,11 +144,13 @@ func (b *baseNode) appendSingleChild(self, child Node) {
 		child.setPreviousSibling(b.lastChild)
 	}
 	b.lastChild = child
+	queueChildListMutation(self, []Node{child}, nil, prevSibling, nil)
 }
 
 // removeChild removes child from this node's children list.
 // Returns the removed child.
 func (b *baseNode) removeChild(child Node) Node {
+	target := child.ParentNode()
 	prev := child.PreviousSibling()
 	next := child.NextSibling()
 
@@ -166,6 +169,7 @@ func (b *baseNode) removeChild(child Node) Node {
 	child.setParent(nil)
 	child.setPreviousSibling(nil)
 	child.setNextSibling(nil)
+	queueChildListMutation(target, nil, []Node{child}, prev, next)
 	return child
 }
 
@@ -214,6 +218,7 @@ func (b *baseNode) replaceChild(self, newChild, oldChild Node) Node {
 	oldChild.setParent(nil)
 	oldChild.setPreviousSibling(nil)
 	oldChild.setNextSibling(nil)
+	queueChildListMutation(self, []Node{newChild}, []Node{oldChild}, prev, next)
 	return oldChild
 }
 
@@ -308,4 +313,5 @@ func (b *baseNode) insertSingleBefore(self, newChild, refChild Node) {
 	} else {
 		b.firstChild = newChild
 	}
+	queueChildListMutation(self, []Node{newChild}, nil, prev, refChild)
 }

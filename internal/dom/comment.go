@@ -43,7 +43,9 @@ func (c *Comment) TextContent() string {
 
 // SetTextContent sets the comment data.
 func (c *Comment) SetTextContent(text string) {
+	oldValue := c.Data
 	c.Data = text
+	queueCharacterDataMutation(c, oldValue)
 }
 
 // CloneNode returns a copy of this Comment node. The deep parameter is accepted

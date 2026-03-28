@@ -56,11 +56,14 @@ func (e *Element) SetAttribute(name, value string) {
 	name = strings.ToLower(name)
 	for i, a := range e.attributes {
 		if a.Key == name {
+			oldValue := a.Val
 			e.attributes[i].Val = value
+			queueAttributeMutation(e, name, oldValue)
 			return
 		}
 	}
 	e.attributes = append(e.attributes, html.Attribute{Key: name, Val: value})
+	queueAttributeMutation(e, name, "")
 }
 
 // HasAttribute returns true if the element has the named attribute.
@@ -79,7 +82,9 @@ func (e *Element) RemoveAttribute(name string) {
 	name = strings.ToLower(name)
 	for i, a := range e.attributes {
 		if a.Key == name {
+			oldValue := a.Val
 			e.attributes = append(e.attributes[:i], e.attributes[i+1:]...)
+			queueAttributeMutation(e, name, oldValue)
 			return
 		}
 	}

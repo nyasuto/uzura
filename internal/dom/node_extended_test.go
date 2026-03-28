@@ -391,4 +391,3 @@ func TestCloneNodeDocument(t *testing.T) {
 		t.Error("cloned elements should be different instances")
 	}
 }
-

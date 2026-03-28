@@ -4,27 +4,37 @@
 
 ---
 
+## Phase 4.5: アーキテクチャ改善（JS/CDP準備）
 
-## Phase 4: DOM API（Web標準準拠）
+Gemini / o3 レビューで指摘された構造的改善。Phase 5（JS）以降で手戻りしないよう先に対処する。
 
-- [ ] Node: appendChild, removeChild, insertBefore, cloneNode（Phase 1で基本実装済み、拡張）
-- [ ] Element: classList, dataset, innerHTML setter（パーサー連携）
-- [ ] Document: createDocumentFragment, importNode
-- [ ] MutationObserver 基本実装
-- [ ] WPT `dom/nodes/` テストのパス
+### Task 4.5.1: QueryEngine インターフェース化
+- [ ] `dom.QueryEngine` インターフェースを定義（QuerySelector, QuerySelectorAll, Matches, Closest）
+- [ ] `Document` / `Element` 生成時にインターフェースを注入する形に変更
+- [ ] `query.go` の関数変数パターンを廃止
+- [ ] `internal/css` が `QueryEngine` を実装
+- [ ] 既存テストが全パス
 
----
+### Task 4.5.2: Observer パターン（DOMミューテーション検知）
+- [ ] `dom.MutationEvent` 型を定義（ChildAdded, ChildRemoved, AttributeChanged 等）
+- [ ] `dom.MutationObserver` インターフェース（またはコールバック型）を定義
+- [ ] `baseNode` の変更メソッド（AppendChild, RemoveChild, SetAttribute等）からイベント発火
+- [ ] テスト: ノード追加/削除/属性変更でコールバックが呼ばれることを検証
+- [ ] 将来のCDP（DOM.documentUpdated）やJS EventListener の基盤となる
 
-## Phase 5: JavaScript Execution（Goja統合）
+### Task 4.5.3: オーケストレーション層（internal/page）
+- [ ] `internal/page` パッケージを新設
+- [ ] `Page` 構造体: DOM, Network, （将来の）JSContext を統括
+- [ ] `Page.Navigate(ctx, url)` — Fetch→Decode→Parse→DOM のライフサイクル管理
+- [ ] `context.Context` を全ブロッキング操作に導入
+- [ ] `network/loader.go` の責務を `page` に移行
+- [ ] テスト: httptest.Server を使ったページロードの E2E テスト
 
-- [ ] `github.com/dop251/goja` 依存追加
-- [ ] Goja VMの初期化とサンドボックス
-- [ ] `document` オブジェクトのJSバインディング
-- [ ] `window`, `globalThis`, `console` の実装
-- [ ] `setTimeout` / `setInterval`
-- [ ] addEventListener / removeEventListener
-- [ ] `<script>` タグのパースと実行順序
-- [ ] WPT `dom/events/` テストのパス
+### Task 4.5.4: エラー型の整備
+- [ ] sentinel errors を定義（`ErrRobotsDisallowed`, `ErrTimeout`, `ErrInvalidSelector` 等）
+- [ ] `FetchError` 構造体（StatusCode, URL を保持）
+- [ ] `errors.Is()` / `errors.As()` で分岐可能にする
+- [ ] 既存のエラーハンドリングをリファクタリング
 
 ---
 
