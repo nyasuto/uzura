@@ -124,7 +124,6 @@ func TestPlaywrightConnect(t *testing.T) {
 	runNode(t, "playwright_test.mjs", wsEndpoint, htmlURL)
 }
 
-
 func TestUnsupportedMethodError(t *testing.T) {
 	wsEndpoint, _ := startFullServer(t)
 
