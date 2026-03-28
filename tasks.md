@@ -137,9 +137,9 @@
 
 ### Task 2.5: CLI `fetch` コマンド
 
-- [ ] `uzura fetch <url>`
-- [ ] `--format`, `--timeout`, `--user-agent` フラグ
-- [ ] 動作確認: `uzura fetch https://example.com`
+- [x] `uzura fetch <url>`
+- [x] `--format`, `--timeout`, `--user-agent` フラグ
+- [x] 動作確認: `uzura fetch https://example.com`
 
 ### Task 2.6: robots.txt
 

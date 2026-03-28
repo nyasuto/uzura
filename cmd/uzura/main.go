@@ -11,7 +11,7 @@ var Version = "dev"
 func main() {
 	if len(os.Args) < 2 {
 		fmt.Fprintln(os.Stderr, "usage: uzura <command> [options]")
-		fmt.Fprintln(os.Stderr, "commands: parse, version")
+		fmt.Fprintln(os.Stderr, "commands: parse, fetch, version")
 		os.Exit(1)
 	}
 
@@ -20,6 +20,11 @@ func main() {
 		fmt.Println("uzura", Version)
 	case "parse":
 		if err := runParse(); err != nil {
+			fmt.Fprintln(os.Stderr, "error:", err)
+			os.Exit(1)
+		}
+	case "fetch":
+		if err := runFetch(); err != nil {
 			fmt.Fprintln(os.Stderr, "error:", err)
 			os.Exit(1)
 		}
