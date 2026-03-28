@@ -23,7 +23,6 @@ jobs:
       - name: Lint
         uses: golangci/golangci-lint-action@v7
         with:
-          args: run
           only-new-issues: true
 
       - name: Run tests with coverage
