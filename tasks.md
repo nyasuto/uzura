@@ -158,8 +158,8 @@
 
 ### Task 3.1: cascadia統合
 
-- [ ] `github.com/andybalholm/cascadia` 依存追加
-- [ ] `internal/css/selector.go` アダプター
+- [x] `github.com/andybalholm/cascadia` 依存追加
+- [x] `internal/css/selector.go` アダプター
 
 ### Task 3.2: querySelector / querySelectorAll
 
