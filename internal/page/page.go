@@ -9,32 +9,41 @@ import (
 	"github.com/nyasuto/uzura/internal/css"
 	"github.com/nyasuto/uzura/internal/dom"
 	"github.com/nyasuto/uzura/internal/html"
+	"github.com/nyasuto/uzura/internal/js"
 	"github.com/nyasuto/uzura/internal/network"
 )
 
 // Page represents a single browsing page (tab).
 // It coordinates fetching, parsing, and DOM construction.
 type Page struct {
-	fetcher *network.Fetcher
-	doc     *dom.Document
-	url     string
+	fetcher   *network.Fetcher
+	doc       *dom.Document
+	url       string
+	vm        *js.VM
+	vmOptions []js.Option
 }
 
 // Options configures a Page.
 type Options struct {
-	Fetcher *network.Fetcher
+	Fetcher   *network.Fetcher
+	VMOptions []js.Option
 }
 
 // New creates a new Page with the given options.
 // If opts is nil or opts.Fetcher is nil, a default Fetcher is created.
 func New(opts *Options) *Page {
 	var f *network.Fetcher
-	if opts != nil && opts.Fetcher != nil {
-		f = opts.Fetcher
-	} else {
+	var vmOpts []js.Option
+	if opts != nil {
+		if opts.Fetcher != nil {
+			f = opts.Fetcher
+		}
+		vmOpts = opts.VMOptions
+	}
+	if f == nil {
 		f = network.NewFetcher(nil)
 	}
-	return &Page{fetcher: f}
+	return &Page{fetcher: f, vmOptions: vmOpts}
 }
 
 // Navigate loads the document at the given URL.
@@ -70,4 +79,15 @@ func (p *Page) Document() *dom.Document {
 // URL returns the URL of the currently loaded page.
 func (p *Page) URL() string {
 	return p.url
+}
+
+// VM returns the JavaScript VM, creating one if needed.
+func (p *Page) VM() *js.VM {
+	if p.vm == nil {
+		p.vm = js.New(p.vmOptions...)
+		if p.doc != nil {
+			js.BindDocument(p.vm, p.doc)
+		}
+	}
+	return p.vm
 }
