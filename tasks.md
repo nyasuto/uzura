@@ -90,7 +90,7 @@
 - [x] `.editorconfig` — インデント・改行コード統一
 
 ### Task 0.3: Git hooks
-- [ ] `make install-hooks` — pre-commit hookのインストール（`make quality` を実行）
-- [ ] `.gitignore` の整備（`uzura` バイナリ、`*.out`, `coverage.html` 等を追加）
+- [x] `make install-hooks` — pre-commit hookのインストール（`make quality` を実行）
+- [x] `.gitignore` の整備（`uzura` バイナリ、`*.out`, `coverage.html` 等を追加）
 
 ---

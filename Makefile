@@ -59,6 +59,15 @@ clean: ## Remove binary and generated files
 	rm -f $(BINARY) $(COVER_PROFILE) $(COVER_HTML)
 	go clean -cache -testcache
 
+## Git hooks
+
+.PHONY: install-hooks
+install-hooks: ## Install pre-commit hook that runs make quality
+	@echo '#!/bin/sh' > .git/hooks/pre-commit
+	@echo 'make quality' >> .git/hooks/pre-commit
+	@chmod +x .git/hooks/pre-commit
+	@echo "pre-commit hook installed"
+
 ## Default
 
 .PHONY: all

@@ -1,1 +1,16 @@
+# Binary
 /uzura
+
+# Coverage
+*.out
+coverage.html
+
+# Editor/IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
