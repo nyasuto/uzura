@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/nyasuto/uzura/internal/cdp"
 	"github.com/coder/websocket"
+	"github.com/nyasuto/uzura/internal/cdp"
 )
 
 func startTestServer(t *testing.T, opts ...cdp.ServerOption) *cdp.Server {
