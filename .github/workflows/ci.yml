@@ -42,37 +42,21 @@ jobs:
   benchmark:
     name: Benchmark
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
-    permissions:
-      pull-requests: write
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: quality
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - uses: actions/setup-go@v5
         with:
           go-version: "1.26"
 
-      - name: Benchmark PR branch
-        run: go test ./... -bench=. -benchmem -count=5 > new.txt
+      - name: Run benchmarks
+        run: go test ./... -bench=. -benchmem -count=5 > benchmark.txt
 
-      - name: Benchmark base branch
-        run: |
-          git checkout ${{ github.event.pull_request.base.sha }}
-          go test ./... -bench=. -benchmem -count=5 > old.txt
-          git checkout -
-
-      - name: Compare benchmarks
-        id: benchstat
-        run: |
-          go install golang.org/x/perf/cmd/benchstat@latest
-          echo '## Benchmark diff' > comment.md
-          echo '```' >> comment.md
-          benchstat old.txt new.txt >> comment.md 2>&1 || true
-          echo '```' >> comment.md
-
-      - name: Post benchmark comment
-        uses: marocchino/sticky-pull-request-comment@v2
+      - name: Upload benchmark results
+        uses: actions/upload-artifact@v4
         with:
-          path: comment.md
+          name: benchmark-${{ github.sha }}
+          path: benchmark.txt
+          retention-days: 90
