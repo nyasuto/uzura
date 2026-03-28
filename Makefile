@@ -54,6 +54,20 @@ e2e: build ## Run E2E tests (requires Node.js + npm install in e2e/)
 	fi
 	go test -tags e2e -timeout 60s ./e2e/...
 
+## WPT
+
+.PHONY: wpt-fetch
+wpt-fetch: ## Download WPT test suite (sparse checkout)
+	bash scripts/wpt-fetch.sh
+
+.PHONY: wpt
+wpt: build ## Run WPT tests (downloads WPT if needed)
+	@if [ ! -d testdata/wpt/.git ]; then \
+		echo "WPT not found, downloading..."; \
+		bash scripts/wpt-fetch.sh; \
+	fi
+	./$(BINARY) wpt $(WPT_DIRS)
+
 ## Cleanup
 
 .PHONY: clean

@@ -12,5 +12,8 @@ coverage.html
 *.swo
 *~
 
+# WPT test data (downloaded by scripts/wpt-fetch.sh)
+testdata/wpt/
+
 # OS
 .DS_Store
