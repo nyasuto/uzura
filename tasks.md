@@ -755,15 +755,15 @@ MCPの `browse` ツールで `format: "markdown"` を指定すると使える。
 
 ### Task 12.2: DOM → Semantic Tree 変換（ランドマーク）
 
-- [ ] `<header>` → role: "banner"
-- [ ] `<nav>` → role: "navigation"
-- [ ] `<main>` → role: "main"
-- [ ] `<aside>` → role: "complementary"
-- [ ] `<footer>` → role: "contentinfo"
-- [ ] `<article>` → role: "article"
-- [ ] `<section>` → role: "region"
-- [ ] ARIA `role` 属性の優先適用
-- [ ] テスト: ランドマーク要素のあるページ、ないページ
+- [x] `<header>` → role: "banner"
+- [x] `<nav>` → role: "navigation"
+- [x] `<main>` → role: "main"
+- [x] `<aside>` → role: "complementary"
+- [x] `<footer>` → role: "contentinfo"
+- [x] `<article>` → role: "article"
+- [x] `<section>` → role: "region"
+- [x] ARIA `role` 属性の優先適用
+- [x] テスト: ランドマーク要素のあるページ、ないページ
 
 ### Task 12.3: DOM → Semantic Tree 変換（インタラクティブ要素）
 
