@@ -4,8 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-
-	"github.com/nyasuto/uzura/internal/page"
 )
 
 // EvaluateParams represents the arguments for the evaluate tool.
@@ -38,10 +36,12 @@ func EvaluateTool() Tool {
 
 // RegisterEvaluateTool registers the evaluate tool with its handler on the server.
 func RegisterEvaluateTool(s *Server) {
-	s.Tools.RegisterWithHandler(EvaluateTool(), handleEvaluate)
+	s.Tools.RegisterWithHandler(EvaluateTool(), func(arguments json.RawMessage) (*ToolCallResult, error) {
+		return handleEvaluate(s.Session, arguments)
+	})
 }
 
-func handleEvaluate(arguments json.RawMessage) (*ToolCallResult, error) {
+func handleEvaluate(session *PageSession, arguments json.RawMessage) (*ToolCallResult, error) {
 	var params EvaluateParams
 	if err := json.Unmarshal(arguments, &params); err != nil {
 		return nil, &RPCError{Code: CodeInvalidParams, Message: "invalid arguments: " + err.Error()}
@@ -56,10 +56,8 @@ func handleEvaluate(arguments json.RawMessage) (*ToolCallResult, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), browseTimeout)
 	defer cancel()
 
-	p := page.New(nil)
-	defer p.Close()
-
-	if err := p.Navigate(ctx, params.URL); err != nil {
+	p, err := session.GetOrNavigate(ctx, params.URL)
+	if err != nil {
 		return &ToolCallResult{
 			Content: []ToolContent{{Type: "text", Text: fmt.Sprintf("error: %s", err)}},
 			IsError: true,
@@ -67,10 +65,10 @@ func handleEvaluate(arguments json.RawMessage) (*ToolCallResult, error) {
 	}
 
 	vm := p.VM()
-	val, err := vm.Eval(params.Script)
-	if err != nil {
+	val, evalErr := vm.Eval(params.Script)
+	if evalErr != nil {
 		return &ToolCallResult{
-			Content: []ToolContent{{Type: "text", Text: fmt.Sprintf("js error: %s", err)}},
+			Content: []ToolContent{{Type: "text", Text: fmt.Sprintf("js error: %s", evalErr)}},
 			IsError: true,
 		}, nil
 	}

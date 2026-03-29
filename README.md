@@ -80,6 +80,35 @@ console.log(title);
 uzura eval https://example.com 'document.title'
 ```
 
+### MCP サーバー（Claude Code / Claude Desktop 統合）
+
+```bash
+# stdio モードで MCP サーバーを起動
+uzura mcp
+```
+
+Claude Code の設定ファイル（`.claude.json` または Claude Desktop の `claude_desktop_config.json`）に以下を追加:
+
+```json
+{
+  "mcpServers": {
+    "uzura": {
+      "command": "uzura",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+利用可能なツール:
+
+| ツール | 説明 |
+|--------|------|
+| `browse` | URL を開いてページのコンテンツを取得（text/html/json） |
+| `evaluate` | ページ上で JavaScript を実行して結果を返す |
+| `query` | CSS セレクターで要素を検索し、テキストや属性を返す |
+| `interact` | ページ上の要素をクリックまたはフォーム入力する |
+
 ### WPT テスト
 
 ```bash
@@ -122,6 +151,7 @@ internal/
 ├── network/    HTTP フェッチャー
 ├── browser/    Browser / Page / Context
 ├── page/       ページライフサイクル管理
+├── mcp/        MCP (Model Context Protocol) サーバー
 └── wpt/        WPT テストランナー
 ```
 

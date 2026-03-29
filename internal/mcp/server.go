@@ -21,6 +21,7 @@ type Server struct {
 	handlers    map[string]Handler
 	initialized bool
 	Tools       *ToolRegistry
+	Session     *PageSession
 }
 
 // NewServer creates a new MCP server with built-in handlers.
@@ -28,6 +29,7 @@ func NewServer() *Server {
 	s := &Server{
 		handlers: make(map[string]Handler),
 		Tools:    NewToolRegistry(),
+		Session:  NewPageSession(),
 	}
 	s.registerBuiltins()
 	return s

@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/nyasuto/uzura/internal/dom"
-	"github.com/nyasuto/uzura/internal/page"
 )
 
 const browseTimeout = 30 * time.Second
@@ -20,10 +19,12 @@ type BrowseParams struct {
 
 // RegisterBrowseTool registers the browse tool with its handler on the server.
 func RegisterBrowseTool(s *Server) {
-	s.Tools.RegisterWithHandler(BrowseTool(), handleBrowse)
+	s.Tools.RegisterWithHandler(BrowseTool(), func(arguments json.RawMessage) (*ToolCallResult, error) {
+		return handleBrowse(s.Session, arguments)
+	})
 }
 
-func handleBrowse(arguments json.RawMessage) (*ToolCallResult, error) {
+func handleBrowse(session *PageSession, arguments json.RawMessage) (*ToolCallResult, error) {
 	var params BrowseParams
 	if err := json.Unmarshal(arguments, &params); err != nil {
 		return nil, &RPCError{Code: CodeInvalidParams, Message: "invalid arguments: " + err.Error()}
@@ -38,10 +39,8 @@ func handleBrowse(arguments json.RawMessage) (*ToolCallResult, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), browseTimeout)
 	defer cancel()
 
-	p := page.New(nil)
-	defer p.Close()
-
-	if err := p.Navigate(ctx, params.URL); err != nil {
+	p, err := session.GetOrNavigate(ctx, params.URL)
+	if err != nil {
 		return &ToolCallResult{
 			Content: []ToolContent{{Type: "text", Text: fmt.Sprintf("error: %s", err)}},
 			IsError: true,

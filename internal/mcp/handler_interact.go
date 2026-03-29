@@ -4,8 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-
-	"github.com/nyasuto/uzura/internal/page"
 )
 
 // InteractParams represents the arguments for the interact tool.
@@ -49,10 +47,12 @@ func InteractTool() Tool {
 
 // RegisterInteractTool registers the interact tool with its handler on the server.
 func RegisterInteractTool(s *Server) {
-	s.Tools.RegisterWithHandler(InteractTool(), handleInteract)
+	s.Tools.RegisterWithHandler(InteractTool(), func(arguments json.RawMessage) (*ToolCallResult, error) {
+		return handleInteract(s.Session, arguments)
+	})
 }
 
-func handleInteract(arguments json.RawMessage) (*ToolCallResult, error) {
+func handleInteract(session *PageSession, arguments json.RawMessage) (*ToolCallResult, error) {
 	var params InteractParams
 	if err := json.Unmarshal(arguments, &params); err != nil {
 		return nil, &RPCError{Code: CodeInvalidParams, Message: "invalid arguments: " + err.Error()}
@@ -70,10 +70,8 @@ func handleInteract(arguments json.RawMessage) (*ToolCallResult, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), browseTimeout)
 	defer cancel()
 
-	p := page.New(nil)
-	defer p.Close()
-
-	if err := p.Navigate(ctx, params.URL); err != nil {
+	p, err := session.GetOrNavigate(ctx, params.URL)
+	if err != nil {
 		return &ToolCallResult{
 			Content: []ToolContent{{Type: "text", Text: fmt.Sprintf("error: %s", err)}},
 			IsError: true,

@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	"github.com/nyasuto/uzura/internal/dom"
-	"github.com/nyasuto/uzura/internal/page"
 )
 
 // QueryParams represents the arguments for the query tool.
@@ -51,10 +50,12 @@ func QueryTool() Tool {
 
 // RegisterQueryTool registers the query tool with its handler on the server.
 func RegisterQueryTool(s *Server) {
-	s.Tools.RegisterWithHandler(QueryTool(), handleQuery)
+	s.Tools.RegisterWithHandler(QueryTool(), func(arguments json.RawMessage) (*ToolCallResult, error) {
+		return handleQuery(s.Session, arguments)
+	})
 }
 
-func handleQuery(arguments json.RawMessage) (*ToolCallResult, error) {
+func handleQuery(session *PageSession, arguments json.RawMessage) (*ToolCallResult, error) {
 	var params QueryParams
 	if err := json.Unmarshal(arguments, &params); err != nil {
 		return nil, &RPCError{Code: CodeInvalidParams, Message: "invalid arguments: " + err.Error()}
@@ -69,10 +70,8 @@ func handleQuery(arguments json.RawMessage) (*ToolCallResult, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), browseTimeout)
 	defer cancel()
 
-	p := page.New(nil)
-	defer p.Close()
-
-	if err := p.Navigate(ctx, params.URL); err != nil {
+	p, err := session.GetOrNavigate(ctx, params.URL)
+	if err != nil {
 		return &ToolCallResult{
 			Content: []ToolContent{{Type: "text", Text: fmt.Sprintf("error: %s", err)}},
 			IsError: true,
