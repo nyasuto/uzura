@@ -173,11 +173,11 @@ MCPの `browse` ツールで `format: "markdown"` を指定すると使える。
 
 ### Task 11.3: 不要要素の除去
 
-- [ ] `<script>`, `<style>`, `<noscript>` の除去
-- [ ] `<nav>`, `<header>`, `<footer>`, `<aside>` の除去（本文抽出モード時）
-- [ ] hidden属性、`display:none` インラインスタイルの要素除去
-- [ ] 広告系クラス名のヒューリスティック除去（`ad-`, `sidebar`, `promo`等）
-- [ ] テスト: クリーン前後の比較
+- [x] `<script>`, `<style>`, `<noscript>` の除去
+- [x] `<nav>`, `<header>`, `<footer>`, `<aside>` の除去（本文抽出モード時）
+- [x] hidden属性、`display:none` インラインスタイルの要素除去
+- [x] 広告系クラス名のヒューリスティック除去（`ad-`, `sidebar`, `promo`等）
+- [x] テスト: クリーン前後の比較
 
 ### Task 11.4: メタデータ抽出
 
