@@ -20,12 +20,14 @@ type Server struct {
 	mu          sync.RWMutex
 	handlers    map[string]Handler
 	initialized bool
+	Tools       *ToolRegistry
 }
 
 // NewServer creates a new MCP server with built-in handlers.
 func NewServer() *Server {
 	s := &Server{
 		handlers: make(map[string]Handler),
+		Tools:    NewToolRegistry(),
 	}
 	s.registerBuiltins()
 	return s
@@ -105,6 +107,8 @@ func (s *Server) dispatch(req *Request) *Response {
 func (s *Server) registerBuiltins() {
 	s.Handle("initialize", s.handleInitialize)
 	s.Handle("ping", s.handlePing)
+	s.Handle("tools/list", s.handleToolsList)
+	s.Handle("tools/call", s.handleToolsCall)
 }
 
 // InitializeParams represents the client's initialize request parameters.
@@ -173,4 +177,16 @@ func (s *Server) handleInitialize(params json.RawMessage) (any, error) {
 
 func (s *Server) handlePing(_ json.RawMessage) (any, error) {
 	return struct{}{}, nil
+}
+
+func (s *Server) handleToolsList(_ json.RawMessage) (any, error) {
+	return &ToolsListResult{Tools: s.Tools.List()}, nil
+}
+
+func (s *Server) handleToolsCall(params json.RawMessage) (any, error) {
+	var p ToolCallParams
+	if err := json.Unmarshal(params, &p); err != nil {
+		return nil, &RPCError{Code: CodeInvalidParams, Message: "invalid params: " + err.Error()}
+	}
+	return s.Tools.Call(p.Name, p.Arguments)
 }
