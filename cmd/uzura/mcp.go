@@ -23,6 +23,7 @@ func runMCP() error {
 	mcp.RegisterEvaluateTool(srv)
 	mcp.RegisterQueryTool(srv)
 	mcp.RegisterInteractTool(srv)
+	mcp.RegisterSemanticTreeTool(srv)
 
 	tr := mcp.NewTransport(os.Stdin, os.Stdout, os.Stderr)
 	tr.Log("uzura mcp server starting (log-level=%s)", *logLevel)

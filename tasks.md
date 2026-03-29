@@ -798,7 +798,7 @@ MCPの `browse` ツールで `format: "markdown"` を指定すると使える。
 
 ### Task 12.6: MCPツール `semantic_tree`
 
-- [ ] `semantic_tree` ツール定義:
+- [x] `semantic_tree` ツール定義:
   ```json
   {
     "name": "semantic_tree",
@@ -813,7 +813,7 @@ MCPの `browse` ツールで `format: "markdown"` を指定すると使える。
     }
   }
   ```
-- [ ] 出力フォーマット: インデント付きテキスト
+- [x] 出力フォーマット: インデント付きテキスト
   ```
   [banner] サイト名
     [navigation] メインメニュー
@@ -828,7 +828,7 @@ MCPの `browse` ツールで `format: "markdown"` を指定すると使える。
       [button#14] ログイン
   [contentinfo] © 2026 Example
   ```
-- [ ] テスト: MCP経由でのsemantic_tree出力
+- [x] テスト: MCP経由でのsemantic_tree出力
 
 ### Task 12.7: `interact` ツールとの連携
 
