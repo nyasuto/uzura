@@ -120,6 +120,33 @@ func (b *docBinder) wrapElement(el *dom.Element) goja.Value {
 		return goja.Undefined()
 	})
 
+	// value property for form elements (input, textarea, select).
+	// Backed by the DOM "value" attribute for persistence across wrapElement calls.
+	_ = obj.DefineAccessorProperty("value",
+		b.vm.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+			return b.vm.runtime.ToValue(el.GetAttribute("value"))
+		}),
+		b.vm.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+			el.SetAttribute("value", call.Argument(0).String())
+			return goja.Undefined()
+		}),
+		goja.FLAG_FALSE, goja.FLAG_TRUE)
+
+	// checked property for checkbox/radio inputs.
+	_ = obj.DefineAccessorProperty("checked",
+		b.vm.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+			return b.vm.runtime.ToValue(el.HasAttribute("checked"))
+		}),
+		b.vm.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+			if call.Argument(0).ToBoolean() {
+				el.SetAttribute("checked", "")
+			} else {
+				el.RemoveAttribute("checked")
+			}
+			return goja.Undefined()
+		}),
+		goja.FLAG_FALSE, goja.FLAG_TRUE)
+
 	b.addNodeMethods(obj, el)
 	b.addClassListProperty(obj, el)
 	b.addDatasetProperty(obj, el)

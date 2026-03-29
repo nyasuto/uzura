@@ -129,6 +129,20 @@ func (d *Document) Title() string {
 	return title.TextContent()
 }
 
+// SetTitle sets the text content of the <title> element, creating one if needed.
+func (d *Document) SetTitle(title string) {
+	head := d.Head()
+	if head == nil {
+		return
+	}
+	titleEl := findChildElement(head, "title")
+	if titleEl == nil {
+		titleEl = d.CreateElement("title")
+		head.AppendChild(titleEl)
+	}
+	titleEl.SetTextContent(title)
+}
+
 // CreateDocumentFragment creates a new empty DocumentFragment owned by this document.
 func (d *Document) CreateDocumentFragment() *DocumentFragment {
 	f := NewDocumentFragment()

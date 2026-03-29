@@ -132,6 +132,151 @@ func TestParseNodeSelector(t *testing.T) {
 	}
 }
 
+func TestLoginWorkflow_SemanticTreeToInteract(t *testing.T) {
+	// E2E workflow simulating an AI agent's "log in to this site" task:
+	// 1. semantic_tree → understand page structure
+	// 2. evaluate → register event handlers (simulating <script> auto-execution)
+	// 3. interact (fill) → enter email and password
+	// 4. interact (click) → submit the form
+	// 5. evaluate → verify login result
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		fmt.Fprint(w, `<!DOCTYPE html>
+<html><head><title>Login - MyApp</title></head>
+<body>
+<header><nav><a href="/">MyApp</a><a href="/about">About</a></nav></header>
+<main>
+  <h1>Sign In</h1>
+  <form id="loginForm">
+    <label for="email">Email Address</label>
+    <input type="email" id="email" name="email" placeholder="you@example.com">
+    <label for="password">Password</label>
+    <input type="password" id="password" name="password" placeholder="Your password">
+    <label for="remember"><input type="checkbox" id="remember" name="remember"> Remember me</label>
+    <button type="submit" id="loginBtn">Sign In</button>
+  </form>
+  <p id="status">Not logged in</p>
+</main>
+<footer>© 2026 MyApp</footer>
+</body></html>`)
+	}))
+	defer ts.Close()
+
+	s := NewServer()
+	RegisterSemanticTreeTool(s)
+	RegisterInteractTool(s)
+	RegisterEvaluateTool(s)
+
+	// Step 1: Get semantic tree to understand the page structure
+	stArgs := fmt.Sprintf(`{"url":%q}`, ts.URL)
+	_, stResult := callTool(s, "semantic_tree", stArgs)
+	if stResult == nil || stResult.IsError {
+		t.Fatalf("semantic_tree failed: %v", stResult)
+	}
+
+	tree := stResult.Content[0].Text
+	t.Logf("Semantic tree:\n%s", tree)
+
+	// Verify the tree shows a login form with expected elements
+	for _, expected := range []string{
+		"[banner]", "[navigation]", "[main]", "[contentinfo]",
+		"[heading]", "Sign In",
+		"[textbox#", "Email",
+		"[textbox#", "Password",
+		"[checkbox#",
+		"[button#", "Sign In",
+	} {
+		if !strings.Contains(tree, expected) {
+			t.Errorf("semantic tree should contain %q, got:\n%s", expected, tree)
+		}
+	}
+
+	// Step 2: Extract NodeIDs for email, password, and submit button
+	emailID := extractNodeID(t, tree, "textbox")
+	if emailID == 0 {
+		t.Fatal("could not find email textbox NodeID")
+	}
+
+	firstTextboxEnd := strings.Index(tree, fmt.Sprintf("[textbox#%d]", emailID))
+	remainingTree := tree[firstTextboxEnd+10:]
+	passwordID := extractNodeID(t, remainingTree, "textbox")
+	if passwordID == 0 {
+		t.Fatal("could not find password textbox NodeID")
+	}
+
+	submitID := extractNodeID(t, tree, "button")
+	if submitID == 0 {
+		t.Fatal("could not find submit button NodeID")
+	}
+
+	t.Logf("Found NodeIDs — email: %d, password: %d, submit: %d", emailID, passwordID, submitID)
+
+	// Step 3: Register click handler via evaluate (simulating page's JS)
+	registerScript := `
+		document.getElementById("loginBtn").addEventListener("click", function(e) {
+			var email = document.getElementById("email").value;
+			var pass = document.getElementById("password").value;
+			if (email && pass) {
+				document.getElementById("status").textContent = "Welcome, " + email + "!";
+				document.title = "Dashboard - MyApp";
+			} else {
+				document.getElementById("status").textContent = "Please fill all fields";
+			}
+		});
+		"handlers registered"
+	`
+	evalSetup := fmt.Sprintf(`{"url":%q,"script":%q}`, ts.URL, registerScript)
+	_, setupResult := callTool(s, "evaluate", evalSetup)
+	if setupResult == nil || setupResult.IsError {
+		t.Fatalf("evaluate setup failed: %v", setupResult)
+	}
+
+	// Step 4: Fill email
+	fillEmail := fmt.Sprintf(`{"url":%q,"selector":"node:%d","action":"fill","value":"user@myapp.com"}`,
+		ts.URL, emailID)
+	_, fillResult := callTool(s, "interact", fillEmail)
+	if fillResult == nil || fillResult.IsError {
+		t.Fatalf("fill email failed: %v", fillResult)
+	}
+
+	// Step 5: Fill password
+	fillPass := fmt.Sprintf(`{"url":%q,"selector":"node:%d","action":"fill","value":"secret123"}`,
+		ts.URL, passwordID)
+	_, fillResult2 := callTool(s, "interact", fillPass)
+	if fillResult2 == nil || fillResult2.IsError {
+		t.Fatalf("fill password failed: %v", fillResult2)
+	}
+
+	// Step 6: Click submit button
+	clickSubmit := fmt.Sprintf(`{"url":%q,"selector":"node:%d","action":"click"}`,
+		ts.URL, submitID)
+	_, clickResult := callTool(s, "interact", clickSubmit)
+	if clickResult == nil || clickResult.IsError {
+		t.Fatalf("click submit failed: %v", clickResult)
+	}
+
+	// Step 7: Verify login result via evaluate
+	evalArgs := fmt.Sprintf(`{"url":%q,"script":"document.getElementById('status').textContent"}`, ts.URL)
+	_, evalResult := callTool(s, "evaluate", evalArgs)
+	if evalResult == nil || evalResult.IsError {
+		t.Fatalf("evaluate failed: %v", evalResult)
+	}
+	statusText := evalResult.Content[0].Text
+	if !strings.Contains(statusText, "Welcome, user@myapp.com!") {
+		t.Errorf("expected welcome message, got: %s", statusText)
+	}
+
+	// Verify page title changed
+	evalTitle := fmt.Sprintf(`{"url":%q,"script":"document.title"}`, ts.URL)
+	_, titleResult := callTool(s, "evaluate", evalTitle)
+	if titleResult == nil || titleResult.IsError {
+		t.Fatalf("evaluate title failed: %v", titleResult)
+	}
+	if titleResult.Content[0].Text != "Dashboard - MyApp" {
+		t.Errorf("expected title 'Dashboard - MyApp', got: %s", titleResult.Content[0].Text)
+	}
+}
+
 // extractNodeID finds the first NodeID for a given role in formatted output.
 // Format: [role#N] or [role#N] name
 func extractNodeID(t *testing.T, output, role string) int {

@@ -849,5 +849,5 @@ MCPの `browse` ツールで `format: "markdown"` を指定すると使える。
 - [x] SPAサイト（JS実行後）のsemantic_tree出力
 - [x] semantic_tree → interact のE2Eワークフローテスト
 - [x] 出力トークン数: 一般的なページで500-2000トークン以内
-- [ ] Claude Code からの実際のワークフローテスト:
+- [x] Claude Code からの実際のワークフローテスト:
       「このサイトにログインして」→ semantic_tree → interact の流れ
