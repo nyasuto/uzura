@@ -184,19 +184,26 @@ func (p *Page) IsClosed() bool {
 }
 
 func (p *Page) emit(evt NetworkEvent) {
-	if p.networkObserver != nil {
-		p.networkObserver(evt)
+	p.mu.Lock()
+	obs := p.networkObserver
+	p.mu.Unlock()
+	if obs != nil {
+		obs(evt)
 	}
 }
 
 // SetNetworkObserver sets the network observer callback.
 func (p *Page) SetNetworkObserver(obs NetworkObserver) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
 	p.networkObserver = obs
 }
 
 // SetRequestInterceptor sets or clears the request interceptor.
 // When set, every request is passed to the interceptor before fetching.
 func (p *Page) SetRequestInterceptor(i RequestInterceptor) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
 	p.requestInterceptor = i
 }
 
