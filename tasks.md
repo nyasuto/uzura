@@ -780,12 +780,12 @@ MCPの `browse` ツールで `format: "markdown"` を指定すると使える。
 
 ### Task 12.4: DOM → Semantic Tree 変換（コンテンツ要素）
 
-- [ ] `<h1>`-`<h6>` → role: "heading", name: テキスト
-- [ ] 連続テキストノード → role: "text", name: 結合テキスト（100文字で切る）
-- [ ] `<ul>/<ol>` → role: "list", children に各 `<li>`
-- [ ] `<img>` → role: "image", name: alt属性
-- [ ] `<table>` → role: "table"（行数・列数をnameに含める）
-- [ ] テスト: 各コンテンツ要素の変換
+- [x] `<h1>`-`<h6>` → role: "heading", name: テキスト
+- [x] 連続テキストノード → role: "text", name: 結合テキスト（100文字で切る）
+- [x] `<ul>/<ol>` → role: "list", children に各 `<li>`
+- [x] `<img>` → role: "image", name: alt属性
+- [x] `<table>` → role: "table"（行数・列数をnameに含める）
+- [x] テスト: 各コンテンツ要素の変換
 
 ### Task 12.5: ツリーの圧縮・ノイズ除去
 

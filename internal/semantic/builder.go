@@ -65,6 +65,12 @@ func (b *Builder) processNode(n dom.Node, out *[]*SemanticNode) {
 		return
 	}
 
+	// Check for content elements
+	if sn := b.processContent(elem); sn != nil {
+		*out = append(*out, sn)
+		return
+	}
+
 	// Check for landmark elements
 	if role, ok := landmarkRoles[tag]; ok {
 		sn := b.makeNode(role, elem)
