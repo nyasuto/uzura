@@ -10,12 +10,14 @@ import (
 	"github.com/nyasuto/uzura/internal/dom"
 	"github.com/nyasuto/uzura/internal/network"
 	"github.com/nyasuto/uzura/internal/page"
+	"github.com/nyasuto/uzura/internal/semantic"
 )
 
 func runFetch() error {
 	fs := flag.NewFlagSet("fetch", flag.ExitOnError)
-	format := fs.String("format", "text", "output format: text, json, html, markdown")
+	format := fs.String("format", "text", "output format: text, json, html, markdown, semantic")
 	verbose := fs.Bool("verbose", false, "show token estimate on stderr (markdown only)")
+	semanticDepth := fs.Int("semantic-depth", semantic.DefaultMaxDepth, "max depth for semantic tree")
 	timeout := fs.Duration("timeout", network.DefaultTimeout, "request timeout")
 	userAgent := fs.String("user-agent", network.DefaultUserAgent, "User-Agent header")
 	obeyRobots := fs.Bool("obey-robots", false, "obey robots.txt rules")
@@ -65,6 +67,9 @@ func runFetch() error {
 		if *verbose {
 			fmt.Fprintf(os.Stderr, "estimated tokens: ~%d\n", estimateTokens(md))
 		}
+	case "semantic":
+		output := renderSemantic(doc, *semanticDepth)
+		_, _ = fmt.Fprint(os.Stdout, output)
 	default:
 		return fmt.Errorf("unknown format: %s", *format)
 	}

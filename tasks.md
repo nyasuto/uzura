@@ -839,9 +839,9 @@ MCPの `browse` ツールで `format: "markdown"` を指定すると使える。
 
 ### Task 12.8: CLIへの `--format semantic` 追加
 
-- [ ] `uzura fetch <url> --format semantic` で動作
-- [ ] インタラクティブ要素の数をサマリ表示
-- [ ] `--semantic-depth N` オプション
+- [x] `uzura fetch <url> --format semantic` で動作
+- [x] インタラクティブ要素の数をサマリ表示
+- [x] `--semantic-depth N` オプション
 
 ### Task 12.9: Phase 12 Verification
 

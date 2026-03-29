@@ -11,12 +11,14 @@ import (
 	"github.com/nyasuto/uzura/internal/dom"
 	htmlparser "github.com/nyasuto/uzura/internal/html"
 	"github.com/nyasuto/uzura/internal/markdown"
+	"github.com/nyasuto/uzura/internal/semantic"
 )
 
 func runParse() error {
 	fs := flag.NewFlagSet("parse", flag.ExitOnError)
-	format := fs.String("format", "text", "output format: text, json, html, markdown")
+	format := fs.String("format", "text", "output format: text, json, html, markdown, semantic")
 	verbose := fs.Bool("verbose", false, "show token estimate on stderr (markdown only)")
+	semanticDepth := fs.Int("semantic-depth", semantic.DefaultMaxDepth, "max depth for semantic tree")
 	if err := fs.Parse(os.Args[2:]); err != nil {
 		return err
 	}
@@ -54,6 +56,9 @@ func runParse() error {
 		if *verbose {
 			fmt.Fprintf(os.Stderr, "estimated tokens: ~%d\n", estimateTokens(md))
 		}
+	case "semantic":
+		output := renderSemantic(doc, *semanticDepth)
+		_, _ = fmt.Fprint(os.Stdout, output)
 	default:
 		return fmt.Errorf("unknown format: %s", *format)
 	}
@@ -141,6 +146,39 @@ func nodeToMap(n dom.Node) map[string]interface{} {
 	}
 
 	return m
+}
+
+func renderSemantic(doc *dom.Document, maxDepth int) string {
+	b := semantic.NewBuilder()
+	nodes := b.Build(doc)
+	nodes = semantic.CompressTree(b, nodes, maxDepth)
+
+	var sb strings.Builder
+
+	// Count interactive elements for summary
+	interactCount := 0
+	countInteractive(nodes, &interactCount)
+
+	for _, n := range nodes {
+		sb.WriteString(n.Format(0))
+	}
+
+	if sb.Len() == 0 {
+		sb.WriteString("(no semantic structure found)\n")
+	}
+
+	fmt.Fprintf(&sb, "\n--- %d interactive element(s) ---\n", interactCount)
+	return sb.String()
+}
+
+func countInteractive(nodes []*semantic.SemanticNode, count *int) {
+	for _, n := range nodes {
+		switch n.Role {
+		case "link", "button", "textbox", "checkbox", "radio", "combobox":
+			*count++
+		}
+		countInteractive(n.Children, count)
+	}
 }
 
 func nodeTypeName(n dom.Node) string {
