@@ -22,6 +22,7 @@ func (p *Page) Navigate(ctx context.Context, url string) error {
 		return ErrPageClosed
 	}
 	pageCtx := p.ctx
+	interceptor := p.requestInterceptor
 	p.mu.Unlock()
 
 	// Merge caller context with page context: canceled if either is done.
@@ -44,8 +45,8 @@ func (p *Page) Navigate(ctx context.Context, url string) error {
 	var headerOverrides http.Header
 
 	// Request interception hook.
-	if p.requestInterceptor != nil {
-		result, iErr := p.requestInterceptor(ctx, InterceptedRequest{
+	if interceptor != nil {
+		result, iErr := interceptor(ctx, InterceptedRequest{
 			RequestID: reqID,
 			URL:       url,
 			Method:    http.MethodGet,
@@ -99,8 +100,8 @@ func (p *Page) Navigate(ctx context.Context, url string) error {
 	}
 
 	// Response-stage interception.
-	if p.requestInterceptor != nil {
-		result, iErr := p.requestInterceptor(ctx, InterceptedRequest{
+	if interceptor != nil {
+		result, iErr := interceptor(ctx, InterceptedRequest{
 			RequestID:       reqID,
 			URL:             fetchURL,
 			Method:          http.MethodGet,
