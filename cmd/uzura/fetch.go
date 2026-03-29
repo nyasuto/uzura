@@ -14,7 +14,8 @@ import (
 
 func runFetch() error {
 	fs := flag.NewFlagSet("fetch", flag.ExitOnError)
-	format := fs.String("format", "text", "output format: text, json, html")
+	format := fs.String("format", "text", "output format: text, json, html, markdown")
+	verbose := fs.Bool("verbose", false, "show token estimate on stderr (markdown only)")
 	timeout := fs.Duration("timeout", network.DefaultTimeout, "request timeout")
 	userAgent := fs.String("user-agent", network.DefaultUserAgent, "User-Agent header")
 	obeyRobots := fs.Bool("obey-robots", false, "obey robots.txt rules")
@@ -58,6 +59,12 @@ func runFetch() error {
 		return enc.Encode(obj)
 	case "html":
 		_, _ = fmt.Fprint(os.Stdout, dom.Serialize(doc))
+	case "markdown":
+		md := renderDocMarkdown(doc, url)
+		_, _ = fmt.Fprint(os.Stdout, md)
+		if *verbose {
+			fmt.Fprintf(os.Stderr, "estimated tokens: ~%d\n", estimateTokens(md))
+		}
 	default:
 		return fmt.Errorf("unknown format: %s", *format)
 	}

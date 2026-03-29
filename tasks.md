@@ -718,9 +718,9 @@ MCPの `browse` ツールで `format: "markdown"` を指定すると使える。
 
 ### Task 11.6: CLIへの `--format markdown` 追加
 
-- [ ] `uzura fetch <url> --format markdown` で動作
-- [ ] `uzura parse --format markdown` で動作（stdin入力）
-- [ ] 出力のトークン数概算をstderrに表示（`--verbose`時）
+- [x] `uzura fetch <url> --format markdown` で動作
+- [x] `uzura parse --format markdown` で動作（stdin入力）
+- [x] 出力のトークン数概算をstderrに表示（`--verbose`時）
 
 ### Task 11.7: Phase 11 Verification
 

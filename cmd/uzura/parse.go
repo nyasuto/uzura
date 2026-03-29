@@ -10,11 +10,13 @@ import (
 
 	"github.com/nyasuto/uzura/internal/dom"
 	htmlparser "github.com/nyasuto/uzura/internal/html"
+	"github.com/nyasuto/uzura/internal/markdown"
 )
 
 func runParse() error {
 	fs := flag.NewFlagSet("parse", flag.ExitOnError)
-	format := fs.String("format", "text", "output format: text, json, html")
+	format := fs.String("format", "text", "output format: text, json, html, markdown")
+	verbose := fs.Bool("verbose", false, "show token estimate on stderr (markdown only)")
 	if err := fs.Parse(os.Args[2:]); err != nil {
 		return err
 	}
@@ -46,11 +48,33 @@ func runParse() error {
 		return enc.Encode(obj)
 	case "html":
 		_, _ = fmt.Fprint(os.Stdout, dom.Serialize(doc))
+	case "markdown":
+		md := renderDocMarkdown(doc, "")
+		_, _ = fmt.Fprint(os.Stdout, md)
+		if *verbose {
+			fmt.Fprintf(os.Stderr, "estimated tokens: ~%d\n", estimateTokens(md))
+		}
 	default:
 		return fmt.Errorf("unknown format: %s", *format)
 	}
 
 	return nil
+}
+
+// estimateTokens provides a rough token count estimate (~4 chars per token for English).
+func estimateTokens(s string) int {
+	return (len(s) + 3) / 4
+}
+
+func renderDocMarkdown(doc *dom.Document, pageURL string) string {
+	meta := markdown.ExtractMetadata(doc, pageURL)
+	cloned, ok := doc.CloneNode(true).(*dom.Document)
+	if !ok {
+		return markdown.FormatFrontmatter(meta) + "\n" + doc.DocumentElement().TextContent()
+	}
+	markdown.Clean(cloned, true)
+	body := markdown.Convert(cloned)
+	return markdown.FormatFrontmatter(meta) + "\n" + body
 }
 
 func printTree(w io.Writer, n dom.Node, depth int) {
