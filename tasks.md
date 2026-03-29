@@ -741,7 +741,7 @@ MCPの `browse` ツールで `format: "markdown"` を指定すると使える。
 
 ### Task 12.1: Semantic Node 型定義
 
-- [ ] `internal/semantic/tree.go`: SemanticNode 構造体
+- [x] `internal/semantic/tree.go`: SemanticNode 構造体
   ```go
   type SemanticNode struct {
       Role     string          // "navigation", "main", "form", "link", "button", "input", "heading", "text", "list", "image"
@@ -751,7 +751,7 @@ MCPの `browse` ツールで `format: "markdown"` を指定すると使える。
       Children []*SemanticNode
   }
   ```
-- [ ] テスト: 構造体の生成とJSON化
+- [x] テスト: 構造体の生成とJSON化
 
 ### Task 12.2: DOM → Semantic Tree 変換（ランドマーク）
 
