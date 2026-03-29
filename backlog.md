@@ -181,12 +181,12 @@ MCPの `browse` ツールで `format: "markdown"` を指定すると使える。
 
 ### Task 11.4: メタデータ抽出
 
-- [ ] `<title>` タグからタイトル
-- [ ] `<meta name="description">` から説明文
-- [ ] `<meta name="author">` から著者
-- [ ] Open Graph タグ（`og:title`, `og:description`, `og:image`）
-- [ ] JSON-LD (`<script type="application/ld+json">`) のパース
-- [ ] 出力形式: Markdownの先頭にYAML frontmatter風のメタデータブロック
+- [x] `<title>` タグからタイトル
+- [x] `<meta name="description">` から説明文
+- [x] `<meta name="author">` から著者
+- [x] Open Graph タグ（`og:title`, `og:description`, `og:image`）
+- [x] JSON-LD (`<script type="application/ld+json">`) のパース
+- [x] 出力形式: Markdownの先頭にYAML frontmatter風のメタデータブロック
 
   ```markdown
   ---
@@ -200,7 +200,7 @@ MCPの `browse` ツールで `format: "markdown"` を指定すると使える。
   本文がここに...
   ```
 
-- [ ] テスト: メタデータあり/なし/部分的の各パターン
+- [x] テスト: メタデータあり/なし/部分的の各パターン
 
 ### Task 11.5: `browse` ツールへの `markdown` フォーマット追加
 
