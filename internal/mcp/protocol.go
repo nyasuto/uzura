@@ -14,7 +14,7 @@ const (
 	CodeInvalidRequest = -32600
 	CodeMethodNotFound = -32601
 	CodeInvalidParams  = -32602
-	CodeInternalError  = -32600
+	CodeInternalError  = -32603
 )
 
 // Request represents an incoming JSON-RPC 2.0 request.
