@@ -660,10 +660,10 @@ MCPの `browse` ツールで `format: "markdown"` を指定すると使える。
 
 ### Task 11.1: go-readability 統合
 
-- [ ] `github.com/go-shiori/go-readability` 依存追加（またはv2: codeberg.org/readeck/go-readability/v2）
-- [ ] `internal/markdown/readability.go`: DOMから本文抽出のアダプター
-- [ ] 入力: `*dom.Document` → 出力: タイトル、著者、本文テキスト
-- [ ] テスト: 記事ページ、非記事ページ（トップページ等）のフォールバック
+- [x] `github.com/go-shiori/go-readability` 依存追加（またはv2: codeberg.org/readeck/go-readability/v2）
+- [x] `internal/markdown/readability.go`: DOMから本文抽出のアダプター
+- [x] 入力: `*dom.Document` → 出力: タイトル、著者、本文テキスト
+- [x] テスト: 記事ページ、非記事ページ（トップページ等）のフォールバック
 
 ### Task 11.2: DOM → Markdown 変換器
 
