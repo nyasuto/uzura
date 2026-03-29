@@ -115,7 +115,7 @@ func BrowseTool() Tool {
 		},
 		"format": {
 			"type": "string",
-			"enum": ["text", "html", "json"],
+			"enum": ["text", "html", "json", "markdown"],
 			"default": "text",
 			"description": "出力フォーマット"
 		}

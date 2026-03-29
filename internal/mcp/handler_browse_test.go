@@ -146,6 +146,95 @@ func TestBrowse_MissingURL(t *testing.T) {
 	}
 }
 
+func TestBrowse_MarkdownFormat(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		fmt.Fprint(w, `<!DOCTYPE html>
+<html>
+<head>
+<title>Article Title</title>
+<meta name="author" content="Jane Doe">
+<meta name="description" content="Test article">
+</head>
+<body>
+<nav>Menu</nav>
+<article>
+<h1>Article Title</h1>
+<p>This is a substantial article paragraph with enough text for readability.
+It should be extracted and converted to markdown format properly.</p>
+<p>Second paragraph with <strong>bold</strong> and <a href="/link">a link</a>.</p>
+<p>Third paragraph ensures sufficient content density for the readability
+algorithm to confidently identify this as the main content area.</p>
+</article>
+<footer>Footer content</footer>
+</body>
+</html>`)
+	}))
+	defer ts.Close()
+
+	s := newTestServer(ts)
+	args := fmt.Sprintf(`{"url":%q,"format":"markdown"}`, ts.URL)
+	_, result := callTool(s, "browse", args)
+
+	if result == nil {
+		t.Fatal("expected result")
+	}
+	if result.IsError {
+		t.Fatalf("unexpected error: %s", result.Content[0].Text)
+	}
+
+	md := result.Content[0].Text
+
+	// Should have frontmatter
+	if !strings.Contains(md, "---\n") {
+		t.Error("markdown output should contain frontmatter")
+	}
+	if !strings.Contains(md, "title:") {
+		t.Error("markdown output should contain title in frontmatter")
+	}
+
+	// Should contain article content in markdown
+	if !strings.Contains(md, "Article Title") {
+		t.Errorf("markdown should contain article title: %s", md)
+	}
+
+	// Should not contain raw HTML tags
+	if strings.Contains(md, "<article>") {
+		t.Error("markdown output should not contain HTML tags")
+	}
+	if strings.Contains(md, "<nav>") {
+		t.Error("markdown output should not contain nav")
+	}
+}
+
+func TestBrowse_MarkdownFallback(t *testing.T) {
+	// A page that readability can't extract should fall back to full page conversion
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		fmt.Fprint(w, `<html><head><title>Simple</title></head><body><p>Short content</p></body></html>`)
+	}))
+	defer ts.Close()
+
+	s := newTestServer(ts)
+	args := fmt.Sprintf(`{"url":%q,"format":"markdown"}`, ts.URL)
+	_, result := callTool(s, "browse", args)
+
+	if result == nil {
+		t.Fatal("expected result")
+	}
+	if result.IsError {
+		t.Fatalf("unexpected error: %s", result.Content[0].Text)
+	}
+
+	md := result.Content[0].Text
+	if !strings.Contains(md, "---\n") {
+		t.Error("fallback markdown should still have frontmatter")
+	}
+	if !strings.Contains(md, "Short content") {
+		t.Errorf("fallback markdown should contain page content: %s", md)
+	}
+}
+
 func TestBrowse_DefaultFormatIsText(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "text/html")

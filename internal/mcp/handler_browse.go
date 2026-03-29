@@ -4,9 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/nyasuto/uzura/internal/dom"
+	htmlparser "github.com/nyasuto/uzura/internal/html"
+	"github.com/nyasuto/uzura/internal/markdown"
 )
 
 const browseTimeout = 30 * time.Second
@@ -61,6 +64,8 @@ func handleBrowse(session *PageSession, arguments json.RawMessage) (*ToolCallRes
 		output = dom.Serialize(doc)
 	case "json":
 		output = serializeDocJSON(doc)
+	case "markdown":
+		output = renderMarkdown(doc, params.URL)
 	default: // "text"
 		output = doc.DocumentElement().TextContent()
 	}
@@ -109,4 +114,44 @@ func docToMap(n dom.Node) map[string]any {
 		m["children"] = kids
 	}
 	return m
+}
+
+func renderMarkdown(doc *dom.Document, pageURL string) string {
+	meta := markdown.ExtractMetadata(doc, pageURL)
+
+	// Try readability extraction first
+	result, err := markdown.Extract(doc, pageURL)
+	if err == nil && result.Content != "" {
+		// Use readability-cleaned content: parse extracted HTML, convert to markdown
+		extractedDoc, parseErr := parseExtractedHTML(result.Content)
+		if parseErr == nil {
+			markdown.Clean(extractedDoc, true)
+			body := markdown.Convert(extractedDoc)
+			var sb strings.Builder
+			sb.WriteString(markdown.FormatFrontmatter(meta))
+			sb.WriteString("\n")
+			sb.WriteString(body)
+			return sb.String()
+		}
+	}
+
+	// Fallback: clean and convert the full page
+	cloned, ok := doc.CloneNode(true).(*dom.Document)
+	if !ok {
+		return markdown.FormatFrontmatter(meta) + "\n" + doc.DocumentElement().TextContent()
+	}
+	markdown.Clean(cloned, true)
+	body := markdown.Convert(cloned)
+
+	var sb strings.Builder
+	sb.WriteString(markdown.FormatFrontmatter(meta))
+	sb.WriteString("\n")
+	sb.WriteString(body)
+	return sb.String()
+}
+
+func parseExtractedHTML(content string) (*dom.Document, error) {
+	r := strings.NewReader("<html><body>" + content + "</body></html>")
+	htmlParser := htmlparser.Parse
+	return htmlParser(r)
 }

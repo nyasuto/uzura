@@ -204,10 +204,10 @@ MCPの `browse` ツールで `format: "markdown"` を指定すると使える。
 
 ### Task 11.5: `browse` ツールへの `markdown` フォーマット追加
 
-- [ ] `browse` ツールの `format` に `"markdown"` を追加
-- [ ] readability で本文抽出 → Markdown変換 → メタデータ付与のパイプライン
-- [ ] readability失敗時のフォールバック: ページ全体をMarkdown変換
-- [ ] テスト: MCP経由でのmarkdown出力
+- [x] `browse` ツールの `format` に `"markdown"` を追加
+- [x] readability で本文抽出 → Markdown変換 → メタデータ付与のパイプライン
+- [x] readability失敗時のフォールバック: ページ全体をMarkdown変換
+- [x] テスト: MCP経由でのmarkdown出力
 
 ### Task 11.6: CLIへの `--format markdown` 追加
 

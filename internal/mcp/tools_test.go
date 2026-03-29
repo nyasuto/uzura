@@ -51,7 +51,7 @@ func TestToolsListHandler(t *testing.T) {
 				"url": { "type": "string", "description": "取得するURL" },
 				"format": {
 					"type": "string",
-					"enum": ["text", "html", "json"],
+					"enum": ["text", "html", "json", "markdown"],
 					"default": "text"
 				}
 			},
@@ -166,7 +166,7 @@ func TestBrowseToolDefinition(t *testing.T) {
 		t.Errorf("format type = %v, want string", fmtProp["type"])
 	}
 	enumVals := fmtProp["enum"].([]any)
-	expected := []string{"text", "html", "json"}
+	expected := []string{"text", "html", "json", "markdown"}
 	if len(enumVals) != len(expected) {
 		t.Fatalf("enum count = %d, want %d", len(enumVals), len(expected))
 	}
