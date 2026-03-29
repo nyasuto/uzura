@@ -217,10 +217,12 @@ MCPの `browse` ツールで `format: "markdown"` を指定すると使える。
 
 ### Task 11.7: Phase 11 Verification
 
-- [ ] 日本語記事サイトでのMarkdown出力テスト
-- [ ] 英語ニュースサイト5件でのMarkdown品質確認
-- [ ] SPAサイト（JS実行後DOM）からのMarkdown抽出テスト
-- [ ] 出力トークン数: 一般的な記事ページで2000-5000トークン以内
+- [x] 日本語記事サイトでのMarkdown出力テスト
+- [x] 英語ニュースサイト5件でのMarkdown品質確認
+- [x] SPAサイト（JS実行後DOM）からのMarkdown抽出テスト
+- [x] 出力トークン数: 一般的な記事ページで2000-5000トークン以内
+
+### Phase 11 Status: COMPLETE ✅
 
 ---
 
