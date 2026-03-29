@@ -846,7 +846,7 @@ MCPの `browse` ツールで `format: "markdown"` を指定すると使える。
 ### Task 12.9: Phase 12 Verification
 
 - [x] 複雑なフォームページ（ログイン、検索、入力フォーム）でのsemantic_tree品質
-- [ ] SPAサイト（JS実行後）のsemantic_tree出力
+- [x] SPAサイト（JS実行後）のsemantic_tree出力
 - [x] semantic_tree → interact のE2Eワークフローテスト
 - [x] 出力トークン数: 一般的なページで500-2000トークン以内
 - [ ] Claude Code からの実際のワークフローテスト:
