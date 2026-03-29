@@ -160,16 +160,16 @@ MCPの `browse` ツールで `format: "markdown"` を指定すると使える。
 
 ### Task 11.2: DOM → Markdown 変換器
 
-- [ ] `internal/markdown/converter.go`: DOMノードのMarkdown変換
-- [ ] 見出し: `<h1>`-`<h6>` → `#`-`######`
-- [ ] 段落: `<p>` → 空行区切り
-- [ ] リスト: `<ul>/<ol>/<li>` → `- ` / `1. `（ネスト対応）
-- [ ] リンク: `<a href>` → `[text](url)`
-- [ ] 強調: `<strong>` → `**text**`, `<em>` → `*text*`
-- [ ] コード: `<code>` → バッククォート, `<pre>` → コードブロック
-- [ ] 画像: `<img>` → `![alt](src)`（altテキスト優先）
-- [ ] テーブル: `<table>` → Markdownテーブル（`| col1 | col2 |`）
-- [ ] テスト: 各要素の変換、ネスト構造、空要素
+- [x] `internal/markdown/converter.go`: DOMノードのMarkdown変換
+- [x] 見出し: `<h1>`-`<h6>` → `#`-`######`
+- [x] 段落: `<p>` → 空行区切り
+- [x] リスト: `<ul>/<ol>/<li>` → `- ` / `1. `（ネスト対応）
+- [x] リンク: `<a href>` → `[text](url)`
+- [x] 強調: `<strong>` → `**text**`, `<em>` → `*text*`
+- [x] コード: `<code>` → バッククォート, `<pre>` → コードブロック
+- [x] 画像: `<img>` → `![alt](src)`（altテキスト優先）
+- [x] テーブル: `<table>` → Markdownテーブル（`| col1 | col2 |`）
+- [x] テスト: 各要素の変換、ネスト構造、空要素
 
 ### Task 11.3: 不要要素の除去
 
