@@ -4,21 +4,38 @@ import (
 	"context"
 	"sync"
 
+	"github.com/nyasuto/uzura/internal/dom"
 	"github.com/nyasuto/uzura/internal/page"
 )
 
 // PageSession manages a cache of pages keyed by URL.
 // When the same URL is requested multiple times, the existing page's DOM is reused.
 type PageSession struct {
-	mu    sync.Mutex
-	pages map[string]*page.Page
+	mu      sync.Mutex
+	pages   map[string]*page.Page
+	nodeMap map[int]*dom.Element // semantic tree NodeID → DOM element
 }
 
 // NewPageSession creates a new page session cache.
 func NewPageSession() *PageSession {
 	return &PageSession{
-		pages: make(map[string]*page.Page),
+		pages:   make(map[string]*page.Page),
+		nodeMap: make(map[int]*dom.Element),
 	}
+}
+
+// SetNodeMap stores a semantic tree NodeID → DOM element mapping.
+func (ps *PageSession) SetNodeMap(m map[int]*dom.Element) {
+	ps.mu.Lock()
+	defer ps.mu.Unlock()
+	ps.nodeMap = m
+}
+
+// GetNodeByID returns the DOM element for a semantic tree NodeID.
+func (ps *PageSession) GetNodeByID(id int) *dom.Element {
+	ps.mu.Lock()
+	defer ps.mu.Unlock()
+	return ps.nodeMap[id]
 }
 
 // GetOrNavigate returns a cached page for the URL, or navigates to it and caches the result.

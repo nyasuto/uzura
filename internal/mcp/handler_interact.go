@@ -4,6 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
+	"strings"
+
+	"github.com/nyasuto/uzura/internal/dom"
 )
 
 // InteractParams represents the arguments for the interact tool.
@@ -86,18 +90,41 @@ func handleInteract(session *PageSession, arguments json.RawMessage) (*ToolCallR
 		}, nil
 	}
 
-	el, err := doc.DocumentElement().QuerySelector(params.Selector)
-	if err != nil {
-		return &ToolCallResult{
-			Content: []ToolContent{{Type: "text", Text: fmt.Sprintf("selector error: %s", err)}},
-			IsError: true,
-		}, nil
+	var el *dom.Element
+
+	// Support "node:N" syntax for semantic tree NodeID-based selection
+	if nodeID, ok := parseNodeSelector(params.Selector); ok {
+		el = session.GetNodeByID(nodeID)
+		if el == nil {
+			return &ToolCallResult{
+				Content: []ToolContent{{Type: "text", Text: fmt.Sprintf("no element for node ID: %d (run semantic_tree first)", nodeID)}},
+				IsError: true,
+			}, nil
+		}
+	} else {
+		var err error
+		el, err = doc.DocumentElement().QuerySelector(params.Selector)
+		if err != nil {
+			return &ToolCallResult{
+				Content: []ToolContent{{Type: "text", Text: fmt.Sprintf("selector error: %s", err)}},
+				IsError: true,
+			}, nil
+		}
+		if el == nil {
+			return &ToolCallResult{
+				Content: []ToolContent{{Type: "text", Text: fmt.Sprintf("no element matches selector: %s", params.Selector)}},
+				IsError: true,
+			}, nil
+		}
 	}
-	if el == nil {
-		return &ToolCallResult{
-			Content: []ToolContent{{Type: "text", Text: fmt.Sprintf("no element matches selector: %s", params.Selector)}},
-			IsError: true,
-		}, nil
+
+	// For NodeID-based selection, assign a temporary data attribute for JS to find
+	jsSelector := params.Selector
+	if _, ok := parseNodeSelector(params.Selector); ok {
+		tmpID := fmt.Sprintf("_uzura_node_%d", el.NodeType())
+		el.SetAttribute("data-uzura-tmp", tmpID)
+		jsSelector = fmt.Sprintf("[data-uzura-tmp=%q]", tmpID)
+		defer el.RemoveAttribute("data-uzura-tmp")
 	}
 
 	vm := p.VM()
@@ -110,7 +137,7 @@ func handleInteract(session *PageSession, arguments json.RawMessage) (*ToolCallR
 			var evt = new Event("click", {bubbles: true, cancelable: true});
 			el.dispatchEvent(evt);
 			return "clicked";
-		})()`, params.Selector)
+		})()`, jsSelector)
 		val, evalErr := vm.Eval(script)
 		if evalErr != nil {
 			return &ToolCallResult{
@@ -132,7 +159,7 @@ func handleInteract(session *PageSession, arguments json.RawMessage) (*ToolCallR
 			var changeEvt = new Event("change", {bubbles: true});
 			el.dispatchEvent(changeEvt);
 			return "filled";
-		})()`, params.Selector, params.Value)
+		})()`, jsSelector, params.Value)
 		val, evalErr := vm.Eval(script)
 		if evalErr != nil {
 			return &ToolCallResult{
@@ -149,4 +176,18 @@ func handleInteract(session *PageSession, arguments json.RawMessage) (*ToolCallR
 		Content: []ToolContent{{Type: "text", Text: "unknown action"}},
 		IsError: true,
 	}, nil
+}
+
+// parseNodeSelector parses a "node:N" selector and returns the NodeID.
+// Returns (id, true) if valid, or (0, false) if not a node selector.
+func parseNodeSelector(selector string) (int, bool) {
+	if !strings.HasPrefix(selector, "node:") {
+		return 0, false
+	}
+	idStr := strings.TrimPrefix(selector, "node:")
+	id, err := strconv.Atoi(idStr)
+	if err != nil || id <= 0 {
+		return 0, false
+	}
+	return id, true
 }

@@ -832,10 +832,10 @@ MCPの `browse` ツールで `format: "markdown"` を指定すると使える。
 
 ### Task 12.7: `interact` ツールとの連携
 
-- [ ] semantic_tree の NodeID を `interact` ツールの selector として使用可能にする
-- [ ] NodeID → DOM要素 のマッピングテーブル管理
-- [ ] ワークフロー: semantic_tree で構造把握 → interact でNodeID指定して操作
-- [ ] テスト: semantic_tree取得 → フォーム入力 → 結果確認
+- [x] semantic_tree の NodeID を `interact` ツールの selector として使用可能にする
+- [x] NodeID → DOM要素 のマッピングテーブル管理
+- [x] ワークフロー: semantic_tree で構造把握 → interact でNodeID指定して操作
+- [x] テスト: semantic_tree取得 → フォーム入力 → 結果確認
 
 ### Task 12.8: CLIへの `--format semantic` 追加
 

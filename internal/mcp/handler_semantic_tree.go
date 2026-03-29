@@ -81,6 +81,9 @@ func handleSemanticTree(session *PageSession, arguments json.RawMessage) (*ToolC
 	nodes := builder.Build(doc)
 	nodes = semantic.CompressTree(builder, nodes, params.MaxDepth)
 
+	// Store NodeMap in session for interact tool to use
+	session.SetNodeMap(builder.NodeMap)
+
 	var sb strings.Builder
 	for _, n := range nodes {
 		sb.WriteString(n.Format(0))
