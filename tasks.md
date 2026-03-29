@@ -767,16 +767,16 @@ MCPの `browse` ツールで `format: "markdown"` を指定すると使える。
 
 ### Task 12.3: DOM → Semantic Tree 変換（インタラクティブ要素）
 
-- [ ] `<a href>` → role: "link", value: href, name: テキスト
-- [ ] `<button>` → role: "button", name: テキスト
-- [ ] `<input type="text">` → role: "textbox", name: label/placeholder
-- [ ] `<input type="checkbox">` → role: "checkbox", value: checked状態
-- [ ] `<input type="radio">` → role: "radio", value: checked状態
-- [ ] `<select>` → role: "combobox", value: 選択中のoption
-- [ ] `<textarea>` → role: "textbox", name: label/placeholder
-- [ ] `<input type="submit">` / `<button type="submit">` → role: "button"
-- [ ] label要素との紐付け（for属性、ラッピング）
-- [ ] テスト: 各input型、label紐付け、ネストしたフォーム
+- [x] `<a href>` → role: "link", value: href, name: テキスト
+- [x] `<button>` → role: "button", name: テキスト
+- [x] `<input type="text">` → role: "textbox", name: label/placeholder
+- [x] `<input type="checkbox">` → role: "checkbox", value: checked状態
+- [x] `<input type="radio">` → role: "radio", value: checked状態
+- [x] `<select>` → role: "combobox", value: 選択中のoption
+- [x] `<textarea>` → role: "textbox", name: label/placeholder
+- [x] `<input type="submit">` / `<button type="submit">` → role: "button"
+- [x] label要素との紐付け（for属性、ラッピング）
+- [x] テスト: 各input型、label紐付け、ネストしたフォーム
 
 ### Task 12.4: DOM → Semantic Tree 変換（コンテンツ要素）
 

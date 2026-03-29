@@ -59,6 +59,12 @@ func (b *Builder) processNode(n dom.Node, out *[]*SemanticNode) {
 		return
 	}
 
+	// Check for interactive elements
+	if sn := b.processInteractive(elem); sn != nil {
+		*out = append(*out, sn)
+		return
+	}
+
 	// Check for landmark elements
 	if role, ok := landmarkRoles[tag]; ok {
 		sn := b.makeNode(role, elem)
@@ -83,6 +89,165 @@ func (b *Builder) makeNode(role string, elem *dom.Element) *SemanticNode {
 		Name:   name,
 		NodeID: id,
 	}
+}
+
+// processInteractive checks if an element is an interactive element and returns
+// a SemanticNode for it, or nil if it is not interactive.
+func (b *Builder) processInteractive(elem *dom.Element) *SemanticNode {
+	tag := elem.LocalName()
+
+	switch tag {
+	case "a":
+		href := elem.GetAttribute("href")
+		if href == "" {
+			return nil
+		}
+		sn := b.makeNode("link", elem)
+		sn.Value = href
+		sn.Name = elementName(elem)
+		return sn
+
+	case "button":
+		sn := b.makeNode("button", elem)
+		sn.Name = elementName(elem)
+		return sn
+
+	case "input":
+		return b.processInput(elem)
+
+	case "select":
+		sn := b.makeNode("combobox", elem)
+		sn.Name = b.inputName(elem)
+		sn.Value = selectedOptionText(elem)
+		return sn
+
+	case "textarea":
+		sn := b.makeNode("textbox", elem)
+		sn.Name = b.inputName(elem)
+		return sn
+	}
+
+	return nil
+}
+
+// processInput handles <input> elements, mapping type to role.
+func (b *Builder) processInput(elem *dom.Element) *SemanticNode {
+	inputType := elem.GetAttribute("type")
+	if inputType == "" {
+		inputType = "text"
+	}
+
+	switch inputType {
+	case "text", "email", "password", "search", "tel", "url", "number":
+		sn := b.makeNode("textbox", elem)
+		sn.Name = b.inputName(elem)
+		return sn
+
+	case "checkbox":
+		sn := b.makeNode("checkbox", elem)
+		sn.Name = b.inputName(elem)
+		if elem.HasAttribute("checked") {
+			sn.Value = "checked"
+		} else {
+			sn.Value = "unchecked"
+		}
+		return sn
+
+	case "radio":
+		sn := b.makeNode("radio", elem)
+		sn.Name = b.inputName(elem)
+		if elem.HasAttribute("checked") {
+			sn.Value = "checked"
+		} else {
+			sn.Value = "unchecked"
+		}
+		return sn
+
+	case "submit":
+		sn := b.makeNode("button", elem)
+		val := elem.GetAttribute("value")
+		if val != "" {
+			sn.Name = val
+		} else {
+			sn.Name = "Submit"
+		}
+		return sn
+
+	case "hidden":
+		return nil
+
+	default:
+		// Other input types treated as textbox
+		sn := b.makeNode("textbox", elem)
+		sn.Name = b.inputName(elem)
+		return sn
+	}
+}
+
+// inputName resolves the accessible name for an input element.
+// Priority: aria-label > associated label (for attribute) > wrapping label > placeholder > name attribute.
+func (b *Builder) inputName(elem *dom.Element) string {
+	if label := elem.GetAttribute("aria-label"); label != "" {
+		return label
+	}
+
+	// Check for associated <label for="id">
+	if id := elem.GetAttribute("id"); id != "" {
+		if doc := elem.OwnerDocument(); doc != nil {
+			labels := doc.GetElementsByTagName("label")
+			for _, labelEl := range labels {
+				if labelEl.GetAttribute("for") == id {
+					return labelEl.TextContent()
+				}
+			}
+		}
+	}
+
+	// Check for wrapping <label>
+	if labelText := findWrappingLabel(elem); labelText != "" {
+		return labelText
+	}
+
+	if ph := elem.GetAttribute("placeholder"); ph != "" {
+		return ph
+	}
+
+	if name := elem.GetAttribute("name"); name != "" {
+		return name
+	}
+
+	return ""
+}
+
+// findWrappingLabel walks up the DOM tree to find a parent <label> element.
+func findWrappingLabel(elem *dom.Element) string {
+	for parent := elem.ParentNode(); parent != nil; parent = parent.ParentNode() {
+		if pElem, ok := parent.(*dom.Element); ok {
+			if pElem.LocalName() == "label" {
+				return pElem.TextContent()
+			}
+		}
+	}
+	return ""
+}
+
+// selectedOptionText returns the text of the selected <option> in a <select>.
+func selectedOptionText(selectElem *dom.Element) string {
+	var firstOption string
+	for child := selectElem.FirstChild(); child != nil; child = child.NextSibling() {
+		opt, ok := child.(*dom.Element)
+		if !ok || opt.LocalName() != "option" {
+			continue
+		}
+		text := opt.TextContent()
+		if firstOption == "" {
+			firstOption = text
+		}
+		if opt.HasAttribute("selected") {
+			return text
+		}
+	}
+	return firstOption
 }
 
 // elementName extracts a human-readable name for an element.
