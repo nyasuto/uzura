@@ -120,6 +120,88 @@ func TestCleanTextContent(t *testing.T) {
 			},
 			want: "",
 		},
+		{
+			name: "skips hidden attribute",
+			html: func() *Element {
+				doc := NewDocument()
+				div := doc.CreateElement("div")
+				div.AppendChild(doc.CreateTextNode("visible"))
+				hidden := doc.CreateElement("span")
+				hidden.SetAttribute("hidden", "")
+				hidden.AppendChild(doc.CreateTextNode("hidden text"))
+				div.AppendChild(hidden)
+				return div
+			},
+			want: "visible",
+		},
+		{
+			name: "skips aria-hidden=true",
+			html: func() *Element {
+				doc := NewDocument()
+				div := doc.CreateElement("div")
+				div.AppendChild(doc.CreateTextNode("see me"))
+				aria := doc.CreateElement("span")
+				aria.SetAttribute("aria-hidden", "true")
+				aria.AppendChild(doc.CreateTextNode("icon"))
+				div.AppendChild(aria)
+				return div
+			},
+			want: "see me",
+		},
+		{
+			name: "keeps aria-hidden=false",
+			html: func() *Element {
+				doc := NewDocument()
+				div := doc.CreateElement("div")
+				aria := doc.CreateElement("span")
+				aria.SetAttribute("aria-hidden", "false")
+				aria.AppendChild(doc.CreateTextNode("shown"))
+				div.AppendChild(aria)
+				return div
+			},
+			want: "shown",
+		},
+		{
+			name: "skips display:none",
+			html: func() *Element {
+				doc := NewDocument()
+				div := doc.CreateElement("div")
+				div.AppendChild(doc.CreateTextNode("visible"))
+				none := doc.CreateElement("div")
+				none.SetAttribute("style", "display:none")
+				none.AppendChild(doc.CreateTextNode("invisible"))
+				div.AppendChild(none)
+				return div
+			},
+			want: "visible",
+		},
+		{
+			name: "skips display: none with space",
+			html: func() *Element {
+				doc := NewDocument()
+				div := doc.CreateElement("div")
+				div.AppendChild(doc.CreateTextNode("ok"))
+				none := doc.CreateElement("span")
+				none.SetAttribute("style", "color: red; Display: None; font-size: 12px")
+				none.AppendChild(doc.CreateTextNode("hidden"))
+				div.AppendChild(none)
+				return div
+			},
+			want: "ok",
+		},
+		{
+			name: "skips template element",
+			html: func() *Element {
+				doc := NewDocument()
+				div := doc.CreateElement("div")
+				div.AppendChild(doc.CreateTextNode("content"))
+				tmpl := doc.CreateElement("template")
+				tmpl.AppendChild(doc.CreateTextNode("template text"))
+				div.AppendChild(tmpl)
+				return div
+			},
+			want: "content",
+		},
 	}
 
 	for _, tt := range tests {

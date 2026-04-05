@@ -874,11 +874,11 @@ Cloudflare/ボット検知でブロックされた。
 
 ### Task 13.2: hidden要素・メタデータの除去
 
-- [ ] `hidden` 属性を持つ要素のテキスト除去
-- [ ] `aria-hidden="true"` 要素のテキスト除去
-- [ ] `display:none` インラインスタイル要素の除去
-- [ ] `<template>` 要素の除去
-- [ ] テスト: 各hidden パターンでの除去確認
+- [x] `hidden` 属性を持つ要素のテキスト除去
+- [x] `aria-hidden="true"` 要素のテキスト除去
+- [x] `display:none` インラインスタイル要素の除去
+- [x] `<template>` 要素の除去
+- [x] テスト: 各hidden パターンでの除去確認
 
 ### Task 13.3: User-Agent の改善
 
