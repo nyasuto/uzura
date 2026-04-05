@@ -4,10 +4,13 @@ package network
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"net/http/cookiejar"
+	"strings"
 	"time"
 
 	uzerr "github.com/nyasuto/uzura/internal/errors"
@@ -27,6 +30,12 @@ const (
 
 	// MaxRedirects is the maximum number of redirects to follow.
 	MaxRedirects = 10
+
+	// MaxRetries is the maximum number of retry attempts for transient errors.
+	MaxRetries = 2
+
+	// retryBaseDelay is the base delay for exponential backoff between retries.
+	retryBaseDelay = 500 * time.Millisecond
 )
 
 // FetcherOptions configures a Fetcher.
@@ -145,8 +154,43 @@ func (f *Fetcher) FetchContext(ctx context.Context, url string) (*http.Response,
 
 // FetchContextWithHeaders retrieves the resource with optional header overrides.
 // Headers in extraHeaders are added to (or override) the default request headers.
+// Transient errors are retried up to MaxRetries times with exponential backoff.
 // The caller must close the response body.
 func (f *Fetcher) FetchContextWithHeaders(ctx context.Context, url string, extraHeaders http.Header) (*http.Response, error) {
+	var lastErr error
+	for attempt := 0; attempt <= MaxRetries; attempt++ {
+		if attempt > 0 {
+			delay := retryBaseDelay * (1 << (attempt - 1)) // 500ms, 1s
+			select {
+			case <-ctx.Done():
+				return nil, fmt.Errorf("fetching %s: %w", url, ctx.Err())
+			case <-time.After(delay):
+			}
+		}
+
+		resp, err := f.doFetch(ctx, url, extraHeaders)
+		if err == nil {
+			// Retry on server errors (503 Service Unavailable, 429 Too Many Requests)
+			if resp.StatusCode == http.StatusServiceUnavailable || resp.StatusCode == http.StatusTooManyRequests {
+				if attempt < MaxRetries {
+					io.Copy(io.Discard, resp.Body) //nolint:errcheck // drain body before retry
+					resp.Body.Close()
+					lastErr = fmt.Errorf("fetching %s: HTTP %d", url, resp.StatusCode)
+					continue
+				}
+			}
+			return resp, nil
+		}
+
+		if !isRetryable(err) || errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			return nil, fmt.Errorf("fetching %s: %w", url, err)
+		}
+		lastErr = err
+	}
+	return nil, fmt.Errorf("fetching %s after %d retries: %w", url, MaxRetries, lastErr)
+}
+
+func (f *Fetcher) doFetch(ctx context.Context, url string, extraHeaders http.Header) (*http.Response, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("creating request: %w", err)
@@ -167,10 +211,26 @@ func (f *Fetcher) FetchContextWithHeaders(ctx context.Context, url string, extra
 		}
 	}
 
-	resp, err := f.client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("fetching %s: %w", url, err)
-	}
+	return f.client.Do(req)
+}
 
-	return resp, nil
+// isRetryable returns true for transient network errors worth retrying.
+func isRetryable(err error) bool {
+	if err == nil {
+		return false
+	}
+	// Connection reset, refused, timeout
+	var netErr net.Error
+	if errors.As(err, &netErr) && netErr.Timeout() {
+		return true
+	}
+	var opErr *net.OpError
+	if errors.As(err, &opErr) {
+		return true
+	}
+	msg := err.Error()
+	return strings.Contains(msg, "connection reset") ||
+		strings.Contains(msg, "connection refused") ||
+		strings.Contains(msg, "EOF") ||
+		strings.Contains(msg, "broken pipe")
 }

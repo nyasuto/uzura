@@ -1,8 +1,10 @@
 package network
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -201,5 +203,122 @@ func TestFetch404(t *testing.T) {
 
 	if resp.StatusCode != 404 {
 		t.Errorf("status = %d, want 404", resp.StatusCode)
+	}
+}
+
+func TestFetchRetry503(t *testing.T) {
+	var attempts atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		n := attempts.Add(1)
+		if n <= 2 {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("ok"))
+	}))
+	defer srv.Close()
+
+	f := NewFetcher(&FetcherOptions{Timeout: 10 * time.Second})
+	resp, err := f.Fetch(srv.URL)
+	if err != nil {
+		t.Fatalf("Fetch failed: %v", err)
+	}
+	resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		t.Errorf("status = %d, want 200", resp.StatusCode)
+	}
+	if got := attempts.Load(); got != 3 {
+		t.Errorf("attempts = %d, want 3 (1 initial + 2 retries)", got)
+	}
+}
+
+func TestFetchRetry429(t *testing.T) {
+	var attempts atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		n := attempts.Add(1)
+		if n == 1 {
+			w.WriteHeader(http.StatusTooManyRequests)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("ok"))
+	}))
+	defer srv.Close()
+
+	f := NewFetcher(&FetcherOptions{Timeout: 10 * time.Second})
+	resp, err := f.Fetch(srv.URL)
+	if err != nil {
+		t.Fatalf("Fetch failed: %v", err)
+	}
+	resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		t.Errorf("status = %d, want 200", resp.StatusCode)
+	}
+	if got := attempts.Load(); got != 2 {
+		t.Errorf("attempts = %d, want 2", got)
+	}
+}
+
+func TestFetchNoRetryOn4xx(t *testing.T) {
+	var attempts atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		attempts.Add(1)
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer srv.Close()
+
+	f := NewFetcher(nil)
+	resp, err := f.Fetch(srv.URL)
+	if err != nil {
+		t.Fatalf("Fetch failed: %v", err)
+	}
+	resp.Body.Close()
+
+	if got := attempts.Load(); got != 1 {
+		t.Errorf("attempts = %d, want 1 (no retry on 404)", got)
+	}
+}
+
+func TestFetchNoRetryOnContextCancel(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(2 * time.Second)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+
+	f := NewFetcher(&FetcherOptions{Timeout: 10 * time.Second})
+	_, err := f.FetchContext(ctx, srv.URL)
+	if err == nil {
+		t.Fatal("expected error on context cancel")
+	}
+}
+
+func TestFetchRetryExhausted503(t *testing.T) {
+	var attempts atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		attempts.Add(1)
+		w.WriteHeader(http.StatusServiceUnavailable)
+	}))
+	defer srv.Close()
+
+	f := NewFetcher(&FetcherOptions{Timeout: 10 * time.Second})
+	resp, err := f.Fetch(srv.URL)
+	if err != nil {
+		t.Fatalf("Fetch failed: %v", err)
+	}
+	resp.Body.Close()
+
+	// After exhausting retries, should return the 503
+	if resp.StatusCode != 503 {
+		t.Errorf("status = %d, want 503", resp.StatusCode)
+	}
+	if got := attempts.Load(); got != 3 {
+		t.Errorf("attempts = %d, want 3", got)
 	}
 }

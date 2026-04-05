@@ -65,6 +65,13 @@ func (ps *PageSession) GetOrNavigate(ctx context.Context, url string) (*page.Pag
 	return p, nil
 }
 
+// GetCached returns a previously cached page for the URL, or nil if not cached.
+func (ps *PageSession) GetCached(url string) *page.Page {
+	ps.mu.Lock()
+	defer ps.mu.Unlock()
+	return ps.pages[url]
+}
+
 // Close closes all cached pages and clears the cache.
 func (ps *PageSession) Close() {
 	ps.mu.Lock()

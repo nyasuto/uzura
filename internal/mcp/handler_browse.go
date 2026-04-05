@@ -3,6 +3,7 @@ package mcp
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -46,6 +47,15 @@ func handleBrowse(session *PageSession, arguments json.RawMessage) (*ToolCallRes
 
 	p, err := session.GetOrNavigate(ctx, params.URL)
 	if err != nil {
+		// On timeout, try returning partial result from cache
+		if errors.Is(err, context.DeadlineExceeded) {
+			if cached := session.GetCached(params.URL); cached != nil && cached.Document() != nil {
+				return &ToolCallResult{
+					Content: []ToolContent{{Type: "text", Text: fmt.Sprintf("[partial result - timeout]\n%s",
+						dom.CleanTextContent(cached.Document().DocumentElement()))}},
+				}, nil
+			}
+		}
 		return &ToolCallResult{
 			Content: []ToolContent{{Type: "text", Text: fmt.Sprintf("error: %s", err)}},
 			IsError: true,
