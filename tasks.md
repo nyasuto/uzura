@@ -1097,7 +1097,9 @@ MCP ツールを検証するテストフレームワークを構築する。
 
 ### Task 17.6: Phase 17 Verification
 
-- [ ] `go test ./internal/mcp/ -race` 全パス（サブプロセステスト含む）
-- [ ] `go test -tags compat ./internal/mcp/ -race` 実サイトテスト全パス
-- [ ] Ralph Loop で `go build && go test ./... -race` だけでフェーズ検証が完結することを確認
-- [ ] tasks.md に `- [ ]` が0件であることを確認
+- [x] `go test ./internal/mcp/ -race` 全パス（サブプロセステスト含む）
+- [x] `go test -tags compat ./internal/mcp/ -race` 実サイトテスト全パス
+- [x] Ralph Loop で `go build && go test ./... -race` だけでフェーズ検証が完結することを確認
+- [x] tasks.md に `- [ ]` が0件であることを確認
+
+### Phase 17 Status: COMPLETE ✅
