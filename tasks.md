@@ -998,11 +998,11 @@ Cloudflare Managed Challenge の基本的な回避を試みる。
 
 ### Task 16.1: Cloudflare 検出
 
-- [ ] Cloudflare challenge ページの検出ロジック実装
-- [ ] レスポンスヘッダー（`cf-ray`, `cf-challenge`）による検出
-- [ ] HTML 内容による検出（"Enable JavaScript and cookies to continue"）
-- [ ] 検出結果を MCP レスポンスのメタデータとして返却
-- [ ] テスト: Cloudflare チャレンジページの検出
+- [x] Cloudflare challenge ページの検出ロジック実装
+- [x] レスポンスヘッダー（`cf-ray`, `cf-challenge`）による検出
+- [x] HTML 内容による検出（"Enable JavaScript and cookies to continue"）
+- [x] 検出結果を MCP レスポンスのメタデータとして返却
+- [x] テスト: Cloudflare チャレンジページの検出
 
 ### Task 16.2: Cookie ベースの challenge 対応
 

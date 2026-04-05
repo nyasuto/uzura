@@ -167,6 +167,8 @@ func (p *Page) Navigate(ctx context.Context, url string) error {
 	p.mu.Lock()
 	p.doc = doc
 	p.url = url
+	p.respHeaders = respHeaders
+	p.respStatusCode = statusCode
 	p.mu.Unlock()
 	return nil
 }
@@ -218,6 +220,8 @@ func (p *Page) handleFulfill(reqID, url string, now func() float64, result *Inte
 	p.mu.Lock()
 	p.doc = doc
 	p.url = url
+	p.respHeaders = respHeaders
+	p.respStatusCode = statusCode
 	p.mu.Unlock()
 	return nil
 }

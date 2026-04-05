@@ -79,6 +79,8 @@ type Page struct {
 	fetcher            *network.Fetcher
 	doc                *dom.Document
 	url                string
+	respHeaders        http.Header
+	respStatusCode     int
 	vm                 *js.VM
 	vmOptions          []js.Option
 	networkObserver    NetworkObserver
@@ -159,6 +161,8 @@ func (p *Page) Close() error {
 	p.vm = nil
 	p.doc = nil
 	p.url = ""
+	p.respHeaders = nil
+	p.respStatusCode = 0
 	p.networkObserver = nil
 	p.requestInterceptor = nil
 	p.closeObserver = nil
@@ -219,6 +223,20 @@ func (p *Page) URL() string {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	return p.url
+}
+
+// ResponseHeaders returns the HTTP response headers from the last navigation.
+func (p *Page) ResponseHeaders() http.Header {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.respHeaders
+}
+
+// ResponseStatusCode returns the HTTP status code from the last navigation.
+func (p *Page) ResponseStatusCode() int {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.respStatusCode
 }
 
 // VM returns the JavaScript VM, creating one if needed.

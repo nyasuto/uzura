@@ -9,6 +9,7 @@ import (
 
 	"github.com/nyasuto/uzura/internal/dom"
 	"github.com/nyasuto/uzura/internal/markdown"
+	"github.com/nyasuto/uzura/internal/network"
 )
 
 const browseTimeout = 30 * time.Second
@@ -70,6 +71,13 @@ func handleBrowse(session *PageSession, arguments json.RawMessage) (*ToolCallRes
 		}, nil
 	}
 
+	// Detect Cloudflare challenge pages.
+	cfResult := network.DetectCloudflare(
+		p.ResponseHeaders(),
+		p.ResponseStatusCode(),
+		dom.Serialize(doc),
+	)
+
 	var output string
 	switch params.Format {
 	case "html":
@@ -77,9 +85,14 @@ func handleBrowse(session *PageSession, arguments json.RawMessage) (*ToolCallRes
 	case "json":
 		output = serializeDocJSON(doc)
 	case "markdown":
-		output = renderMarkdown(doc, params.URL)
+		output = renderMarkdownWithCloudflare(doc, params.URL, cfResult)
 	default: // "text"
 		output = dom.CleanTextContent(doc.DocumentElement())
+	}
+
+	// Prepend Cloudflare warning for non-markdown formats.
+	if cfResult.Detected && params.Format != "markdown" {
+		output = fmt.Sprintf("[cloudflare challenge detected: %s]\n\n%s", cfResult.Reason, output)
 	}
 
 	// Apply default max length if not specified
@@ -137,6 +150,10 @@ func docToMap(n dom.Node) map[string]any {
 	return m
 }
 
-func renderMarkdown(doc *dom.Document, pageURL string) string {
-	return markdown.RenderWithFallback(doc, pageURL)
+func renderMarkdownWithCloudflare(doc *dom.Document, pageURL string, cf *network.CloudflareResult) string {
+	md := markdown.RenderWithFallback(doc, pageURL)
+	if !cf.Detected {
+		return md
+	}
+	return markdown.InjectCloudflareMetadata(md, cf.Reason)
 }

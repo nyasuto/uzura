@@ -10,14 +10,16 @@ import (
 
 // Metadata holds page metadata extracted from HTML.
 type Metadata struct {
-	Title       string
-	Description string
-	Author      string
-	URL         string
-	OGTitle     string
-	OGDesc      string
-	OGImage     string
-	SPADetected bool
+	Title              string
+	Description        string
+	Author             string
+	URL                string
+	OGTitle            string
+	OGDesc             string
+	OGImage            string
+	SPADetected        bool
+	CloudflareDetected bool
+	CloudflareReason   string
 }
 
 // ExtractMetadata extracts metadata from a DOM document's <head>.
@@ -148,6 +150,37 @@ func FormatFrontmatter(m *Metadata) string {
 		sb.WriteString("spa_detected: true\n")
 	}
 
+	if m.CloudflareDetected {
+		sb.WriteString("cloudflare_detected: true\n")
+		if m.CloudflareReason != "" {
+			fmt.Fprintf(&sb, "cloudflare_reason: %s\n", m.CloudflareReason)
+		}
+	}
+
 	sb.WriteString("---\n")
 	return sb.String()
+}
+
+// InjectCloudflareMetadata inserts cloudflare_detected and cloudflare_reason
+// fields into existing markdown frontmatter. If frontmatter is present, the
+// fields are added before the closing ---. Otherwise a new frontmatter block
+// is prepended.
+func InjectCloudflareMetadata(md, reason string) string {
+	cfLines := "cloudflare_detected: true\n"
+	if reason != "" {
+		cfLines += fmt.Sprintf("cloudflare_reason: %s\n", reason)
+	}
+
+	// Try to inject into existing frontmatter.
+	if strings.HasPrefix(md, "---\n") {
+		closing := strings.Index(md[4:], "\n---\n")
+		if closing >= 0 {
+			// Insert before the closing ---.
+			insertPos := 4 + closing + 1 // position of the closing "---\n"
+			return md[:insertPos] + cfLines + md[insertPos:]
+		}
+	}
+
+	// No frontmatter found; prepend a minimal block.
+	return "---\n" + cfLines + "---\n" + md
 }
