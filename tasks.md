@@ -891,10 +891,10 @@ Cloudflare/ボット検知でブロックされた。
 
 ### Task 13.4: TLS フィンガープリントの改善
 
-- [ ] `crypto/tls` の ClientHello 設定を Chrome 相当に調整
-- [ ] TLS 拡張の順序と内容を一般的なブラウザに合わせる
-- [ ] HTTP/2 対応の確認（ALPN ネゴシエーション）
-- [ ] テスト: TLS 接続が一般ブラウザと同等のフィンガープリントになることを確認
+- [x] `crypto/tls` の ClientHello 設定を Chrome 相当に調整
+- [x] TLS 拡張の順序と内容を一般的なブラウザに合わせる
+- [x] HTTP/2 対応の確認（ALPN ネゴシエーション）
+- [x] テスト: TLS 接続が一般ブラウザと同等のフィンガープリントになることを確認
 
 ### Task 13.5: Phase 13 Verification
 

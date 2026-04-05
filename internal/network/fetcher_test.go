@@ -157,6 +157,35 @@ func TestFetchBrowserHeaders(t *testing.T) {
 	}
 }
 
+func TestFetchTLSConfig(t *testing.T) {
+	f := NewFetcher(nil)
+	transport, ok := f.client.Transport.(*http.Transport)
+	if !ok {
+		t.Fatal("expected *http.Transport")
+	}
+
+	tlsCfg := transport.TLSClientConfig
+	if tlsCfg == nil {
+		t.Fatal("TLS config is nil")
+	}
+
+	if tlsCfg.MinVersion != 0x0303 { // tls.VersionTLS12
+		t.Errorf("MinVersion = %x, want TLS 1.2 (0x0303)", tlsCfg.MinVersion)
+	}
+
+	if len(tlsCfg.CipherSuites) == 0 {
+		t.Error("CipherSuites is empty")
+	}
+
+	if len(tlsCfg.CurvePreferences) == 0 {
+		t.Error("CurvePreferences is empty")
+	}
+
+	if !transport.ForceAttemptHTTP2 {
+		t.Error("ForceAttemptHTTP2 should be true")
+	}
+}
+
 func TestFetch404(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
