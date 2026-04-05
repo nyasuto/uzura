@@ -118,6 +118,10 @@ func BrowseTool() Tool {
 			"enum": ["text", "html", "json", "markdown"],
 			"default": "text",
 			"description": "出力フォーマット"
+		},
+		"max_length": {
+			"type": "integer",
+			"description": "出力の最大バイト数（デフォルト: 102400≒100KB）。超過時は末尾を切り詰めて [truncated] を付与"
 		}
 	},
 	"required": ["url"]

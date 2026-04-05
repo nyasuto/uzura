@@ -12,10 +12,14 @@ import (
 
 const browseTimeout = 30 * time.Second
 
+// defaultMaxLength is the default maximum output size in bytes (~100KB).
+const defaultMaxLength = 100 * 1024
+
 // BrowseParams represents the arguments for the browse tool.
 type BrowseParams struct {
-	URL    string `json:"url"`
-	Format string `json:"format,omitempty"`
+	URL       string `json:"url"`
+	Format    string `json:"format,omitempty"`
+	MaxLength int    `json:"max_length,omitempty"`
 }
 
 // RegisterBrowseTool registers the browse tool with its handler on the server.
@@ -66,6 +70,15 @@ func handleBrowse(session *PageSession, arguments json.RawMessage) (*ToolCallRes
 		output = renderMarkdown(doc, params.URL)
 	default: // "text"
 		output = dom.CleanTextContent(doc.DocumentElement())
+	}
+
+	// Apply default max length if not specified
+	maxLen := params.MaxLength
+	if maxLen <= 0 {
+		maxLen = defaultMaxLength
+	}
+	if len(output) > maxLen {
+		output = output[:maxLen] + "\n\n[truncated]"
 	}
 
 	return &ToolCallResult{

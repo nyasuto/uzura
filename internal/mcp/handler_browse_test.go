@@ -332,6 +332,64 @@ func TestBrowse_TextSizeReduction(t *testing.T) {
 	}
 }
 
+func TestBrowse_MaxLength(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		fmt.Fprint(w, `<html><body><p>`+strings.Repeat("A", 5000)+`</p></body></html>`)
+	}))
+	defer ts.Close()
+
+	s := newTestServer(ts)
+
+	t.Run("truncation applied", func(t *testing.T) {
+		args := fmt.Sprintf(`{"url":%q,"max_length":100}`, ts.URL)
+		_, result := callTool(s, "browse", args)
+		if result == nil || result.IsError {
+			t.Fatal("expected successful result")
+		}
+		text := result.Content[0].Text
+		if !strings.HasSuffix(text, "[truncated]") {
+			t.Errorf("truncated output should end with [truncated], got suffix: %q", text[len(text)-20:])
+		}
+		// 100 chars of content + "\n\n[truncated]" = ~112
+		if len(text) > 150 {
+			t.Errorf("output too long: %d chars", len(text))
+		}
+	})
+
+	t.Run("default 100KB limit when not specified", func(t *testing.T) {
+		// 5000 chars is well under 100KB, so no truncation
+		args := fmt.Sprintf(`{"url":%q}`, ts.URL)
+		_, result := callTool(s, "browse", args)
+		text := result.Content[0].Text
+		if strings.Contains(text, "[truncated]") {
+			t.Error("small content should not be truncated with default limit")
+		}
+	})
+}
+
+func TestBrowse_DefaultMaxLengthTruncates(t *testing.T) {
+	// Create a page larger than defaultMaxLength (100KB)
+	bigContent := strings.Repeat("X", 150*1024)
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		fmt.Fprintf(w, `<html><body><p>%s</p></body></html>`, bigContent)
+	}))
+	defer ts.Close()
+
+	s := newTestServer(ts)
+	args := fmt.Sprintf(`{"url":%q}`, ts.URL)
+	_, result := callTool(s, "browse", args)
+	text := result.Content[0].Text
+	if !strings.HasSuffix(text, "[truncated]") {
+		t.Error("large content should be truncated by default 100KB limit")
+	}
+	// Output should be around 100KB + "[truncated]" suffix
+	if len(text) > 105*1024 {
+		t.Errorf("output too large: %d bytes, expected ~100KB", len(text))
+	}
+}
+
 func TestBrowse_DefaultFormatIsText(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
