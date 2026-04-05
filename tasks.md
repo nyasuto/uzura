@@ -1061,12 +1061,12 @@ MCP ツールを検証するテストフレームワークを構築する。
 
 ### Task 17.2: browse ツールのサブプロセステスト
 
-- [ ] httptest.Server でテスト用ページを提供
-- [ ] `browse format=text` の基本テスト（コンテンツ取得確認）
-- [ ] `browse format=markdown` のテスト（メタデータ・本文抽出確認）
-- [ ] script/style 除去の確認（Phase 13 の検証）
-- [ ] 大規模HTML（100KB超）での動作確認
-- [ ] テスト: レスポンスサイズ制御（`max_length` パラメータ）
+- [x] httptest.Server でテスト用ページを提供
+- [x] `browse format=text` の基本テスト（コンテンツ取得確認）
+- [x] `browse format=markdown` のテスト（メタデータ・本文抽出確認）
+- [x] script/style 除去の確認（Phase 13 の検証）
+- [x] 大規模HTML（100KB超）での動作確認
+- [x] テスト: レスポンスサイズ制御（`max_length` パラメータ）
 
 ### Task 17.3: semantic_tree / query ツールのサブプロセステスト
 
