@@ -1077,15 +1077,15 @@ MCP ツールを検証するテストフレームワークを構築する。
 
 ### Task 17.4: 実サイト互換性テスト（自動化）
 
-- [ ] `internal/mcp/compat_test.go`: 実サイトへの接続テスト（`-tags compat` でビルドタグ分離）
-- [ ] テスト対象（最小セット5サイト）:
+- [x] `internal/mcp/compat_test.go`: 実サイトへの接続テスト（`-tags compat` でビルドタグ分離）
+- [x] テスト対象（最小セット5サイト）:
   - https://news.ycombinator.com/ — シンプルHTML
   - https://go.dev/ — 静的サイト
   - https://en.wikipedia.org/wiki/Web_browser — 大規模
   - https://react.dev/ — SSG/SPA
   - https://stackoverflow.com/ — Cloudflare（改善確認）
-- [ ] 各サイトで browse text, browse markdown, semantic_tree, query h1 を実行
-- [ ] 結果の成否判定（空でないこと、タイムアウトしないこと）
+- [x] 各サイトで browse text, browse markdown, semantic_tree, query h1 を実行
+- [x] 結果の成否判定（空でないこと、タイムアウトしないこと）
 - [ ] `go test -tags compat -run TestCompat ./internal/mcp/` で実行
 
 ### Task 17.5: Phase 13-16 の残存タスクをテストに移行
