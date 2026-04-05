@@ -982,9 +982,9 @@ MCP レスポンスが巨大（数百KB）になるケースへの対処。
 
 ### Task 15.4: Phase 15 Verification
 
-- [ ] 30サイトで Connection closed エラーが0件になることを確認
-- [ ] Amazon, GitHub Trending 等の巨大サイトでの安定動作
-- [ ] 既存テストの全パス
+- [ ] 30サイトで Connection closed エラーが0件になることを確認（MCPサーバー再起動後に実施）
+- [ ] Amazon, GitHub Trending 等の巨大サイトでの安定動作（MCPサーバー再起動後に実施）
+- [x] 既存テストの全パス
 
 ---
 
