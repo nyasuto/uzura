@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "uzura": {
+      "type": "stdio",
+      "command": "/Users/yast/git/uzura/uzura",
+      "args": ["mcp"]
+    }
+  }
+}

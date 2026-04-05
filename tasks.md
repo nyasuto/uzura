@@ -851,3 +851,177 @@ MCPの `browse` ツールで `format: "markdown"` を指定すると使える。
 - [x] 出力トークン数: 一般的なページで500-2000トークン以内
 - [x] Claude Code からの実際のワークフローテスト:
       「このサイトにログインして」→ semantic_tree → interact の流れ
+
+
+## Phase 13: text出力ノイズ除去 & User-Agent改善
+
+browse format=text の出力から不要な script/style コンテンツを除去し、
+User-Agent を改善してボット検知を軽減する。
+小さな変更で全サイトの出力品質を大幅に向上させるクイックウィン。
+
+背景: 30サイト互換性テスト（2026-04-05）で、text出力に大量のJS/CSSが
+混入する問題が判明。NHK(852KB), Amazon(752KB), Vercel(527KB) 等で
+出力の大半がノイズ。また Stack Overflow, Reddit, Medium が
+Cloudflare/ボット検知でブロックされた。
+
+### Task 13.1: text出力の script/style 除去
+
+- [ ] `internal/dom/` のテキスト抽出で `<script>`, `<style>` ノード内テキストをスキップ
+- [ ] `<noscript>` ノードの扱いを決定（有用なコンテンツを含む場合がある）
+- [ ] markdown変換（`internal/markdown/`）で既に実装済みの除去ロジックを参考に統一
+- [ ] テスト: script/style混在HTMLでのtext出力がクリーンになることを確認
+- [ ] ベンチマーク: 除去前後の出力サイズ比較
+
+### Task 13.2: hidden要素・メタデータの除去
+
+- [ ] `hidden` 属性を持つ要素のテキスト除去
+- [ ] `aria-hidden="true"` 要素のテキスト除去
+- [ ] `display:none` インラインスタイル要素の除去
+- [ ] `<template>` 要素の除去
+- [ ] テスト: 各hidden パターンでの除去確認
+
+### Task 13.3: User-Agent の改善
+
+- [ ] 現在のデフォルト User-Agent を確認
+- [ ] 一般的な Chrome User-Agent 文字列に変更
+  （例: `Mozilla/5.0 ... Chrome/130.0.0.0 Safari/537.36`）
+- [ ] `Accept`, `Accept-Language`, `Accept-Encoding` ヘッダーの追加
+- [ ] Sec-Fetch-* ヘッダー群の追加（Sec-Fetch-Mode, Sec-Fetch-Site, Sec-Fetch-Dest）
+- [ ] テスト: httptest.Server でヘッダーの送信を確認
+
+### Task 13.4: TLS フィンガープリントの改善
+
+- [ ] `crypto/tls` の ClientHello 設定を Chrome 相当に調整
+- [ ] TLS 拡張の順序と内容を一般的なブラウザに合わせる
+- [ ] HTTP/2 対応の確認（ALPN ネゴシエーション）
+- [ ] テスト: TLS 接続が一般ブラウザと同等のフィンガープリントになることを確認
+
+### Task 13.5: Phase 13 Verification
+
+- [ ] 30サイト互換性テストの再実行
+- [ ] text出力サイズの削減率を測定（目標: 平均50%以上削減）
+- [ ] User-Agent 改善後のボット検知回避率を確認
+- [ ] Stack Overflow, Reddit, Medium への接続改善を確認
+- [ ] 既存テストの全パス（`go test ./... -race`）
+
+---
+
+## Phase 14: Markdown品質の安定化
+
+readability 失敗時のフォールバック戦略を改善し、
+SPA サイトや構造が特殊なサイトでの markdown 出力品質を向上させる。
+
+背景: SPA系サイト（Anthropic Docs, Claude API Docs）で markdown が
+"Loading..." のみ、Angular の markdown が極少量等の問題が判明。
+
+### Task 14.1: readability フォールバックの改善
+
+- [ ] readability 失敗を検知する基準の明確化（出力が短すぎる、本文なし等）
+- [ ] フォールバック戦略: `<main>` → `<article>` → `<body>` の順で本文領域を探索
+- [ ] semantic_tree ベースの markdown 生成（ランドマーク構造を活用）
+- [ ] テスト: readability 成功/失敗/部分成功の各パターン
+
+### Task 14.2: noscript コンテンツの活用
+
+- [ ] `<noscript>` 内のHTMLをパースしてコンテンツ候補にする
+- [ ] JS無効時にnoscriptコンテンツがメインコンテンツになるサイトへの対応
+- [ ] noscript と通常コンテンツの優先度判定
+- [ ] テスト: Yahoo! Japan 等 noscript に有用なコンテンツがあるサイト
+
+### Task 14.3: SPA 検出と警告
+
+- [ ] 本文が "Loading...", "Please wait", 空の場合にSPA可能性を検出
+- [ ] markdown 出力にSPA警告メタデータを付与（`spa_detected: true`）
+- [ ] JS実行後のDOMを使ったmarkdown再生成の仕組み
+- [ ] テスト: React CSR, Angular, Vue CSR の各パターン
+
+### Task 14.4: markdown 出力の最適化
+
+- [ ] SVG データURI の除去（Svelte等で混入）
+- [ ] 過剰な空行・空白の正規化
+- [ ] 出力トークン数の上限設定（`--max-tokens` オプション）
+- [ ] テスト: 各サイトカテゴリでの品質スコア改善確認
+
+### Task 14.5: Phase 14 Verification
+
+- [ ] 30サイトでの markdown 品質スコア再測定（目標: 平均3.5→4.0以上）
+- [ ] SPA サイト5件での markdown 改善確認
+- [ ] 日本語サイト10件での markdown 品質確認
+- [ ] 既存テストの全パス
+
+---
+
+## Phase 15: 接続安定性とレスポンスサイズ制御
+
+Connection closed エラーの解消と、大規模サイト処理時の安定性向上。
+
+背景: Amazon links, MDN h1 等で散発する Connection closed エラー。
+MCP レスポンスが巨大（数百KB）になるケースへの対処。
+
+### Task 15.1: MCP レスポンスサイズ制御
+
+- [ ] レスポンスの最大サイズ設定（デフォルト: 100KB）
+- [ ] 超過時の切り詰め（末尾に `[truncated]` 付与）
+- [ ] `browse` ツールに `max_length` パラメータ追加
+- [ ] テスト: 巨大ページでの切り詰め動作確認
+
+### Task 15.2: query ツールの大量結果対策
+
+- [ ] `query` ツールに `limit` パラメータ追加（デフォルト: 100件）
+- [ ] `offset` パラメータでページネーション対応
+- [ ] 結果件数のサマリ情報を付与（`total: 1178, returned: 100`）
+- [ ] テスト: 1000件超のリンクがあるページでの動作
+
+### Task 15.3: タイムアウトとリトライ
+
+- [ ] MCP ツール実行のタイムアウト設定（デフォルト: 30秒）
+- [ ] ネットワークリトライ（最大2回、指数バックオフ）
+- [ ] タイムアウト時の部分結果返却（取得済みのDOMを返す）
+- [ ] テスト: 遅延サーバー、タイムアウトシナリオ
+
+### Task 15.4: Phase 15 Verification
+
+- [ ] 30サイトで Connection closed エラーが0件になることを確認
+- [ ] Amazon, GitHub Trending 等の巨大サイトでの安定動作
+- [ ] 既存テストの全パス
+
+---
+
+## Phase 16: Cloudflare 基本対策
+
+Cloudflare Managed Challenge の基本的な回避を試みる。
+完全な回避は困難だが、簡易的な JS challenge への対応で一部サイトのアクセスを改善。
+
+背景: Stack Overflow, Reddit, Medium が Cloudflare でブロック。
+これらは月間数億アクセスの主要サイトであり、対応の優先度は高い。
+
+### Task 16.1: Cloudflare 検出
+
+- [ ] Cloudflare challenge ページの検出ロジック実装
+- [ ] レスポンスヘッダー（`cf-ray`, `cf-challenge`）による検出
+- [ ] HTML 内容による検出（"Enable JavaScript and cookies to continue"）
+- [ ] 検出結果を MCP レスポンスのメタデータとして返却
+- [ ] テスト: Cloudflare チャレンジページの検出
+
+### Task 16.2: Cookie ベースの challenge 対応
+
+- [ ] Cloudflare の `__cf_bm`, `cf_clearance` Cookie の処理
+- [ ] 簡易 JS challenge のスクリプト実行（goja で）
+- [ ] challenge 成功後の Cookie 保持とリトライ
+- [ ] テスト: 簡易 challenge のシミュレーション
+
+### Task 16.3: リクエストパターンの改善
+
+- [ ] 初回アクセス時の振る舞いを一般ブラウザに近づける
+  - favicon.ico の自動リクエスト
+  - CSS/JS リソースの参照（実際にはダウンロードしない）
+- [ ] リファラーヘッダーの適切な設定
+- [ ] Connection: keep-alive の維持
+- [ ] テスト: リクエストパターンの比較
+
+### Task 16.4: Phase 16 Verification
+
+- [ ] Stack Overflow, Reddit, Medium への接続テスト
+- [ ] 改善率の測定（目標: 3サイト中1サイト以上で改善）
+- [ ] 副作用確認: 既に動作するサイトへの影響なし
+- [ ] 既存テストの全パス

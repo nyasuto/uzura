@@ -1,0 +1,119 @@
+- generic [active] [ref=e1]:
+  - main [ref=e2]:
+    - navigation "main navigation" [ref=e3]:
+      - generic [ref=e5]:
+        - link "WPT Pass Rates" [ref=e7] [cursor=pointer]:
+          - /url: /
+          - img "WPT Pass Rates" [ref=e8]
+        - generic [ref=e9]:
+          - generic [ref=e10]:
+            - link "Get Involved" [ref=e11] [cursor=pointer]:
+              - /url: "#"
+            - text: 
+          - link "Download" [ref=e12] [cursor=pointer]:
+            - /url: /download/
+          - link "Blog" [ref=e13] [cursor=pointer]:
+            - /url: /blog/
+          - link "Demos " [ref=e14] [cursor=pointer]:
+            - /url: https://demo.servo.org/
+            - text: Demos
+            - generic [ref=e16]: 
+          - generic [ref=e17]:
+            - link "About" [ref=e18] [cursor=pointer]:
+              - /url: "#"
+            - text: 
+          - generic [ref=e19]:
+            - link "" [ref=e20] [cursor=pointer]:
+              - /url: https://github.com/servo/servo
+              - generic [ref=e22]: 
+            - link "" [ref=e23] [cursor=pointer]:
+              - /url: https://floss.social/@servo
+              - generic [ref=e25]: 
+            - link "" [ref=e26] [cursor=pointer]:
+              - /url: https://bsky.app/profile/servo.org
+              - generic [ref=e28]: 
+            - link "" [ref=e29] [cursor=pointer]:
+              - /url: https://www.linkedin.com/company/servo-project/
+              - generic [ref=e31]: 
+    - complementary
+    - generic [ref=e33]:
+      - heading "WPT Pass Rates" [level=1] [ref=e34]
+      - paragraph [ref=e35]
+      - paragraph [ref=e36]:
+        - text: The chart below tracks our pass rates in several
+        - emphasis [ref=e37]: focus areas
+        - text: of the
+        - link "Web Platform Tests" [ref=e38] [cursor=pointer]:
+          - /url: http://web-platform-tests.org/
+        - text: ", as well as the whole CSS and WPT test suites. To drill down the pass rates under a focus area, see the"
+        - link "Servo results on wpt.fyi" [ref=e39] [cursor=pointer]:
+          - /url: https://wpt.fyi/results/?product=servo
+        - text: .
+      - paragraph
+      - generic [ref=e40]:
+        - generic [ref=e41]:
+          - generic [ref=e42]: "Test suite:"
+          - combobox "Test suite:" [ref=e43]
+        - generic [ref=e44]:
+          - generic [ref=e45]: "period:"
+          - combobox "period:" [ref=e46]:
+            - option "last month" [selected]
+            - option "last 3 months"
+            - option "last 6 months"
+            - option "last year"
+            - option "since April 2023"
+      - figure [ref=e47]:
+        - table [ref=e48]:
+          - rowgroup [ref=e49]:
+            - row "Test Suite Score Subtests" [ref=e50]:
+              - columnheader "Test Suite" [ref=e51]
+              - columnheader "Score" [ref=e52]
+              - columnheader "Subtests" [ref=e53]
+          - rowgroup
+      - paragraph [ref=e54]:
+        - text: The results are calculated as percentages of total enabled tests within the suite that pass.
+        - text: "Scores are computed as follows: a passing test with no subtests gets a score of 1 while a test with subtests gets a score between 0 and 1 representing the fraction of passing subtests within that test."
+        - text: Subtests are calculated by giving equal weight to both top-level tests and subtests.
+  - generic "Contact information" [ref=e55]:
+    - generic [ref=e57]:
+      - heading "Contact" [level=2] [ref=e59]
+      - list [ref=e61]:
+        - listitem [ref=e62]:
+          - link "Zulip chat" [ref=e63] [cursor=pointer]:
+            - /url: https://servo.zulipchat.com/
+        - listitem [ref=e64]:
+          - link "GitHub discussions" [ref=e65] [cursor=pointer]:
+            - /url: https://github.com/servo/servo/discussions
+        - listitem [ref=e66]:
+          - 'link "Email: info@servo.org" [ref=e67] [cursor=pointer]':
+            - /url: mailto:info@servo.org
+        - listitem [ref=e68]:
+          - link "Mastodon" [ref=e69] [cursor=pointer]:
+            - /url: https://floss.social/@servo
+        - listitem [ref=e70]:
+          - link "Bluesky" [ref=e71] [cursor=pointer]:
+            - /url: https://bsky.app/profile/servo.org
+  - contentinfo [ref=e72]:
+    - generic [ref=e75]:
+      - generic [ref=e76]:
+        - link "Linux Foundation Europe logo" [ref=e78] [cursor=pointer]:
+          - /url: https://linuxfoundation.eu
+          - img "Linux Foundation Europe logo" [ref=e79]
+        - paragraph [ref=e80]: © 2026 The Servo Project Developers
+        - paragraph [ref=e81]:
+          - text: Copyright © Servo is a project of
+          - link "Linux Foundation Europe" [ref=e82] [cursor=pointer]:
+            - /url: https://linuxfoundation.eu/
+          - text: .
+        - paragraph [ref=e83]:
+          - text: For website terms of use, trademark policy and other project policies please see
+          - link "https://lfprojects.org" [ref=e84] [cursor=pointer]:
+            - /url: https://lfprojects.org
+          - text: .
+        - paragraph [ref=e85]:
+          - text: The source code for this website can be found at
+          - link "https://github.com/servo/servo.org" [ref=e86] [cursor=pointer]:
+            - /url: https://github.com/servo/servo.org
+          - text: .
+      - link "Code of Conduct" [ref=e88] [cursor=pointer]:
+        - /url: /coc/
