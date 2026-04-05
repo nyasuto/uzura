@@ -45,5 +45,11 @@ golangci-lint run              # lint (includes vet)
 - Commit format: `phase{N}.{T}: {description}`
 - Errors returned, never panic
 
+## MCP 検証ポリシー
+- MCP ツールの動作検証は **サブプロセステスト** (`go test`) で行う。MCPサーバーの手動再起動に依存しない。
+- テスト方法: `uzura mcp` をサブプロセスとして起動し、stdin/stdout の JSON-RPC で検証する（`internal/mcp/testutil_test.go`）。
+- 実サイト互換性テストはビルドタグ `-tags compat` で分離し、CI では実行しない。
+- タスクに「MCPサーバー再起動後に実施」と書かない。代わりにテストコードを書く。
+
 ## Current Focus
 See tasks.md for the active phase and pending tasks.
