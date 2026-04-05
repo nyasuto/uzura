@@ -45,7 +45,7 @@ func TestRobotsSpecificAgent(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/robots.txt":
-			w.Write([]byte("User-agent: Uzura\nDisallow: /blocked\n\nUser-agent: *\nAllow: /\n"))
+			w.Write([]byte("User-agent: Mozilla\nDisallow: /blocked\n\nUser-agent: *\nAllow: /\n"))
 		default:
 			w.Write([]byte("<html><body>ok</body></html>"))
 		}

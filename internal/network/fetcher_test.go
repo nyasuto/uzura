@@ -125,6 +125,38 @@ func TestFetchDefaultTimeout(t *testing.T) {
 	}
 }
 
+func TestFetchBrowserHeaders(t *testing.T) {
+	var headers http.Header
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		headers = r.Header.Clone()
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	f := NewFetcher(nil)
+	resp, err := f.Fetch(srv.URL)
+	if err != nil {
+		t.Fatalf("Fetch failed: %v", err)
+	}
+	resp.Body.Close()
+
+	checks := map[string]string{
+		"Accept":                    "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+		"Accept-Language":           "en-US,en;q=0.9",
+		"Sec-Fetch-Dest":            "document",
+		"Sec-Fetch-Mode":            "navigate",
+		"Sec-Fetch-Site":            "none",
+		"Sec-Fetch-User":            "?1",
+		"Upgrade-Insecure-Requests": "1",
+	}
+	for name, want := range checks {
+		got := headers.Get(name)
+		if got != want {
+			t.Errorf("header %s = %q, want %q", name, got, want)
+		}
+	}
+}
+
 func TestFetch404(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)

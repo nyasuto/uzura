@@ -882,12 +882,12 @@ Cloudflare/ボット検知でブロックされた。
 
 ### Task 13.3: User-Agent の改善
 
-- [ ] 現在のデフォルト User-Agent を確認
-- [ ] 一般的な Chrome User-Agent 文字列に変更
+- [x] 現在のデフォルト User-Agent を確認
+- [x] 一般的な Chrome User-Agent 文字列に変更
   （例: `Mozilla/5.0 ... Chrome/130.0.0.0 Safari/537.36`）
-- [ ] `Accept`, `Accept-Language`, `Accept-Encoding` ヘッダーの追加
-- [ ] Sec-Fetch-* ヘッダー群の追加（Sec-Fetch-Mode, Sec-Fetch-Site, Sec-Fetch-Dest）
-- [ ] テスト: httptest.Server でヘッダーの送信を確認
+- [x] `Accept`, `Accept-Language`, `Accept-Encoding` ヘッダーの追加
+- [x] Sec-Fetch-* ヘッダー群の追加（Sec-Fetch-Mode, Sec-Fetch-Site, Sec-Fetch-Dest）
+- [x] テスト: httptest.Server でヘッダーの送信を確認
 
 ### Task 13.4: TLS フィンガープリントの改善
 

@@ -16,7 +16,8 @@ type CookieJar = http.CookieJar
 
 const (
 	// DefaultUserAgent is the default User-Agent header sent with requests.
-	DefaultUserAgent = "Uzura/0.1 (+https://github.com/nyasuto/uzura)"
+	// Uses a Chrome-like UA string to reduce bot detection.
+	DefaultUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36"
 
 	// DefaultTimeout is the default request timeout.
 	DefaultTimeout = 30 * time.Second
@@ -113,6 +114,14 @@ func (f *Fetcher) FetchContextWithHeaders(ctx context.Context, url string, extra
 	}
 
 	req.Header.Set("User-Agent", f.userAgent)
+	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8")
+	req.Header.Set("Accept-Language", "en-US,en;q=0.9")
+	req.Header.Set("Accept-Encoding", "gzip, deflate, br")
+	req.Header.Set("Sec-Fetch-Dest", "document")
+	req.Header.Set("Sec-Fetch-Mode", "navigate")
+	req.Header.Set("Sec-Fetch-Site", "none")
+	req.Header.Set("Sec-Fetch-User", "?1")
+	req.Header.Set("Upgrade-Insecure-Requests", "1")
 	for k, vals := range extraHeaders {
 		for _, v := range vals {
 			req.Header.Set(k, v)
