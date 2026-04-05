@@ -67,7 +67,7 @@ func handleBrowse(session *PageSession, arguments json.RawMessage) (*ToolCallRes
 	case "markdown":
 		output = renderMarkdown(doc, params.URL)
 	default: // "text"
-		output = doc.DocumentElement().TextContent()
+		output = dom.CleanTextContent(doc.DocumentElement())
 	}
 
 	return &ToolCallResult{

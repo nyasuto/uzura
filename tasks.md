@@ -866,11 +866,11 @@ Cloudflare/ボット検知でブロックされた。
 
 ### Task 13.1: text出力の script/style 除去
 
-- [ ] `internal/dom/` のテキスト抽出で `<script>`, `<style>` ノード内テキストをスキップ
-- [ ] `<noscript>` ノードの扱いを決定（有用なコンテンツを含む場合がある）
-- [ ] markdown変換（`internal/markdown/`）で既に実装済みの除去ロジックを参考に統一
-- [ ] テスト: script/style混在HTMLでのtext出力がクリーンになることを確認
-- [ ] ベンチマーク: 除去前後の出力サイズ比較
+- [x] `internal/dom/` のテキスト抽出で `<script>`, `<style>` ノード内テキストをスキップ
+- [x] `<noscript>` ノードの扱いを決定（有用なコンテンツを含む場合がある）
+- [x] markdown変換（`internal/markdown/`）で既に実装済みの除去ロジックを参考に統一
+- [x] テスト: script/style混在HTMLでのtext出力がクリーンになることを確認
+- [x] ベンチマーク: 除去前後の出力サイズ比較
 
 ### Task 13.2: hidden要素・メタデータの除去
 
