@@ -77,16 +77,18 @@ func pickLargest(elems []*dom.Element) *dom.Element {
 // RenderWithFallback produces markdown from a document using a multi-stage
 // extraction strategy:
 //  1. Try readability extraction — if quality is Good, use it.
-//  2. If quality is Partial or Failed, find the best content region
+//  2. If quality is Partial or Failed, try noscript content as a fallback.
+//  3. If noscript is not useful, find the best content region
 //     (<main> → <article> → <body>) and convert that.
 func RenderWithFallback(doc *dom.Document, pageURL string) string {
 	meta := ExtractMetadata(doc, pageURL)
 
 	// Stage 1: Try readability extraction
+	var normalQuality = QualityFailed
 	result, err := Extract(doc, pageURL)
 	if err == nil {
-		quality := AssessQuality(result.Content)
-		if quality == QualityGood {
+		normalQuality = AssessQuality(result.Content)
+		if normalQuality == QualityGood {
 			md := convertExtractedHTML(result.Content)
 			if md != "" {
 				return FormatFrontmatter(meta) + "\n" + md
@@ -94,7 +96,17 @@ func RenderWithFallback(doc *dom.Document, pageURL string) string {
 		}
 	}
 
-	// Stage 2: Find best content region and convert
+	// Stage 2: Try noscript content as fallback
+	noscriptContents := ExtractNoscriptContent(doc)
+	bestNoscript := PickBestNoscript(noscriptContents)
+	if ShouldUseNoscript(normalQuality, bestNoscript) {
+		md := convertExtractedHTML("<div>" + bestNoscript + "</div>")
+		if md != "" {
+			return FormatFrontmatter(meta) + "\n" + md
+		}
+	}
+
+	// Stage 3: Find best content region and convert
 	cloned, ok := doc.CloneNode(true).(*dom.Document)
 	if !ok {
 		return FormatFrontmatter(meta) + "\n" + doc.DocumentElement().TextContent()

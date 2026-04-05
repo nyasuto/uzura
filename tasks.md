@@ -924,10 +924,10 @@ SPA サイトや構造が特殊なサイトでの markdown 出力品質を向上
 
 ### Task 14.2: noscript コンテンツの活用
 
-- [ ] `<noscript>` 内のHTMLをパースしてコンテンツ候補にする
-- [ ] JS無効時にnoscriptコンテンツがメインコンテンツになるサイトへの対応
-- [ ] noscript と通常コンテンツの優先度判定
-- [ ] テスト: Yahoo! Japan 等 noscript に有用なコンテンツがあるサイト
+- [x] `<noscript>` 内のHTMLをパースしてコンテンツ候補にする
+- [x] JS無効時にnoscriptコンテンツがメインコンテンツになるサイトへの対応
+- [x] noscript と通常コンテンツの優先度判定
+- [x] テスト: Yahoo! Japan 等 noscript に有用なコンテンツがあるサイト
 
 ### Task 14.3: SPA 検出と警告
 
