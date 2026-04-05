@@ -1006,10 +1006,10 @@ Cloudflare Managed Challenge の基本的な回避を試みる。
 
 ### Task 16.2: Cookie ベースの challenge 対応
 
-- [ ] Cloudflare の `__cf_bm`, `cf_clearance` Cookie の処理
-- [ ] 簡易 JS challenge のスクリプト実行（goja で）
-- [ ] challenge 成功後の Cookie 保持とリトライ
-- [ ] テスト: 簡易 challenge のシミュレーション
+- [x] Cloudflare の `__cf_bm`, `cf_clearance` Cookie の処理
+- [x] 簡易 JS challenge のスクリプト実行（goja で）
+- [x] challenge 成功後の Cookie 保持とリトライ
+- [x] テスト: 簡易 challenge のシミュレーション
 
 ### Task 16.3: リクエストパターンの改善
 
