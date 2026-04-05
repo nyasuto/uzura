@@ -931,10 +931,10 @@ SPA サイトや構造が特殊なサイトでの markdown 出力品質を向上
 
 ### Task 14.3: SPA 検出と警告
 
-- [ ] 本文が "Loading...", "Please wait", 空の場合にSPA可能性を検出
-- [ ] markdown 出力にSPA警告メタデータを付与（`spa_detected: true`）
-- [ ] JS実行後のDOMを使ったmarkdown再生成の仕組み
-- [ ] テスト: React CSR, Angular, Vue CSR の各パターン
+- [x] 本文が "Loading...", "Please wait", 空の場合にSPA可能性を検出
+- [x] markdown 出力にSPA警告メタデータを付与（`spa_detected: true`）
+- [x] JS実行後のDOMを使ったmarkdown再生成の仕組み
+- [x] テスト: React CSR, Angular, Vue CSR の各パターン
 
 ### Task 14.4: markdown 出力の最適化
 

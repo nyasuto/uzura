@@ -17,6 +17,7 @@ type Metadata struct {
 	OGTitle     string
 	OGDesc      string
 	OGImage     string
+	SPADetected bool
 }
 
 // ExtractMetadata extracts metadata from a DOM document's <head>.
@@ -141,6 +142,10 @@ func FormatFrontmatter(m *Metadata) string {
 
 	if m.OGImage != "" {
 		fmt.Fprintf(&sb, "image: %s\n", m.OGImage)
+	}
+
+	if m.SPADetected {
+		sb.WriteString("spa_detected: true\n")
 	}
 
 	sb.WriteString("---\n")

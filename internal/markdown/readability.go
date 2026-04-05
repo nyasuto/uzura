@@ -2,6 +2,7 @@
 package markdown
 
 import (
+	"fmt"
 	"io"
 	"net/url"
 	"strings"
@@ -22,7 +23,15 @@ type ExtractResult struct {
 
 // Extract runs readability on a DOM document and returns the extracted article.
 // If extraction fails (e.g., non-article page), it returns an error.
-func Extract(doc *dom.Document, pageURL string) (*ExtractResult, error) {
+// It recovers from panics in the readability library for malformed documents.
+func Extract(doc *dom.Document, pageURL string) (result *ExtractResult, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			result = nil
+			err = fmt.Errorf("readability panic: %v", r)
+		}
+	}()
+
 	serialized := dom.Serialize(doc)
 	r := strings.NewReader(serialized)
 

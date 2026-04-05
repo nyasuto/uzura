@@ -105,6 +105,38 @@ func TestEvaluate_MissingParams(t *testing.T) {
 	}
 }
 
+func TestEvaluate_MarkdownFormat(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		// SPA-like page with minimal initial content
+		fmt.Fprint(w, `<html><head><title>SPA App</title></head><body><div id="root"></div></body></html>`)
+	}))
+	defer ts.Close()
+
+	s := NewServer()
+	RegisterEvaluateTool(s)
+
+	// Execute JS that adds content, then request markdown format
+	script := `document.getElementById('root').innerHTML = '<h1>Hello from JS</h1><p>Content loaded via JavaScript.</p>'`
+	args := fmt.Sprintf(`{"url":%q,"script":%q,"format":"markdown"}`, ts.URL, script)
+	_, result := callTool(s, "evaluate", args)
+
+	if result == nil {
+		t.Fatal("expected result")
+	}
+	if result.IsError {
+		t.Fatalf("unexpected error: %s", result.Content[0].Text)
+	}
+
+	output := result.Content[0].Text
+	if !strings.Contains(output, "Hello from JS") {
+		t.Errorf("markdown should contain JS-generated content, got: %s", output)
+	}
+	if !strings.Contains(output, "title: SPA App") {
+		t.Errorf("markdown should contain frontmatter, got: %s", output)
+	}
+}
+
 func TestEvaluateToolDefinition(t *testing.T) {
 	tool := EvaluateTool()
 

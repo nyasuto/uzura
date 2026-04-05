@@ -83,14 +83,21 @@ func pickLargest(elems []*dom.Element) *dom.Element {
 func RenderWithFallback(doc *dom.Document, pageURL string) string {
 	meta := ExtractMetadata(doc, pageURL)
 
+	// Check for SPA patterns before extraction
+	spaDetected := DetectSPA(doc)
+
 	// Stage 1: Try readability extraction
 	var normalQuality = QualityFailed
 	result, err := Extract(doc, pageURL)
 	if err == nil {
 		normalQuality = AssessQuality(result.Content)
+		if !spaDetected {
+			spaDetected = DetectSPAFromContent(result.Content, normalQuality)
+		}
 		if normalQuality == QualityGood {
 			md := convertExtractedHTML(result.Content)
 			if md != "" {
+				meta.SPADetected = spaDetected
 				return FormatFrontmatter(meta) + "\n" + md
 			}
 		}
@@ -102,6 +109,7 @@ func RenderWithFallback(doc *dom.Document, pageURL string) string {
 	if ShouldUseNoscript(normalQuality, bestNoscript) {
 		md := convertExtractedHTML("<div>" + bestNoscript + "</div>")
 		if md != "" {
+			meta.SPADetected = spaDetected
 			return FormatFrontmatter(meta) + "\n" + md
 		}
 	}
@@ -109,6 +117,7 @@ func RenderWithFallback(doc *dom.Document, pageURL string) string {
 	// Stage 3: Find best content region and convert
 	cloned, ok := doc.CloneNode(true).(*dom.Document)
 	if !ok {
+		meta.SPADetected = spaDetected
 		return FormatFrontmatter(meta) + "\n" + doc.DocumentElement().TextContent()
 	}
 
@@ -119,6 +128,7 @@ func RenderWithFallback(doc *dom.Document, pageURL string) string {
 	cleanLayoutInRegion(region)
 
 	body := Convert(region)
+	meta.SPADetected = spaDetected
 	return FormatFrontmatter(meta) + "\n" + body
 }
 
