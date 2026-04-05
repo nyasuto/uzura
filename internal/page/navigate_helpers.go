@@ -44,6 +44,15 @@ func (p *Page) Navigate(ctx context.Context, url string) error {
 	fetchURL := url
 	var headerOverrides http.Header
 
+	// Set Referer header from current page URL (browser-like behavior).
+	p.mu.Lock()
+	prevURL := p.url
+	p.mu.Unlock()
+	if prevURL != "" {
+		headerOverrides = make(http.Header)
+		headerOverrides.Set("Referer", prevURL)
+	}
+
 	// Request interception hook.
 	if interceptor != nil {
 		result, iErr := interceptor(ctx, InterceptedRequest{
@@ -72,7 +81,13 @@ func (p *Page) Navigate(ctx context.Context, url string) error {
 					fetchURL = result.URL
 				}
 				if result.Headers != nil {
-					headerOverrides = result.Headers
+					// Merge interceptor headers with Referer (interceptor wins on conflict).
+					if headerOverrides == nil {
+						headerOverrides = make(http.Header)
+					}
+					for k, vals := range result.Headers {
+						headerOverrides[k] = vals
+					}
 				}
 			}
 		}
@@ -164,12 +179,20 @@ func (p *Page) Navigate(ctx context.Context, url string) error {
 
 	doc.SetQueryEngine(css.NewEngine())
 
+	// Extract resource URLs before storing the doc, while we still have
+	// exclusive access to the DOM tree (no concurrent JS mutations).
+	resourceURLs := extractResourceURLs(doc)
+
 	p.mu.Lock()
 	p.doc = doc
 	p.url = url
 	p.respHeaders = respHeaders
 	p.respStatusCode = statusCode
 	p.mu.Unlock()
+
+	// Fire background resource hint requests to mimic browser behavior.
+	go p.sendResourceHintsBg(url, resourceURLs)
+
 	return nil
 }
 

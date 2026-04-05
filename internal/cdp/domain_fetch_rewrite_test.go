@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"net/http"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -31,9 +32,12 @@ func waitForRequestPaused(t *testing.T, ctx context.Context, conn *websocket.Con
 }
 
 func TestFetchContinueRequestWithURLRewrite(t *testing.T) {
-	var lastPath string
+	var lastDocPath atomic.Value
 	s, html := startFetchServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		lastPath = r.URL.Path
+		// Track document paths, skip background resource hint requests.
+		if r.URL.Path != "/favicon.ico" && r.Method == http.MethodGet {
+			lastDocPath.Store(r.URL.Path)
+		}
 		w.Header().Set("Content-Type", "text/html")
 		w.Write([]byte("<html><body>rewritten</body></html>"))
 	}))
@@ -80,15 +84,19 @@ func TestFetchContinueRequestWithURLRewrite(t *testing.T) {
 		}
 	}
 
+	lastPath, _ := lastDocPath.Load().(string)
 	if lastPath != "/rewritten" {
 		t.Errorf("server received path %q, want /rewritten", lastPath)
 	}
 }
 
 func TestFetchContinueRequestWithHeaderInjection(t *testing.T) {
-	var gotAuth string
+	var gotAuth atomic.Value
 	s, html := startFetchServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		gotAuth = r.Header.Get("Authorization")
+		// Only capture headers from the main document request.
+		if r.URL.Path == "/" || r.URL.Path == "" {
+			gotAuth.Store(r.Header.Get("Authorization"))
+		}
 		w.Header().Set("Content-Type", "text/html")
 		w.Write([]byte("<html></html>"))
 	}))
@@ -131,15 +139,19 @@ func TestFetchContinueRequestWithHeaderInjection(t *testing.T) {
 		}
 	}
 
-	if gotAuth != "Bearer token123" {
-		t.Errorf("Authorization header = %q, want %q", gotAuth, "Bearer token123")
+	auth, _ := gotAuth.Load().(string)
+	if auth != "Bearer token123" {
+		t.Errorf("Authorization header = %q, want %q", auth, "Bearer token123")
 	}
 }
 
 func TestFetchFulfillRequest(t *testing.T) {
-	var serverHit bool
+	var serverHit atomic.Bool
 	s, html := startFetchServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		serverHit = true
+		// Only track main document requests, not background resource hints.
+		if r.URL.Path == "/" || r.URL.Path == "" {
+			serverHit.Store(true)
+		}
 		w.Write([]byte("<html></html>"))
 	}))
 
@@ -187,7 +199,7 @@ func TestFetchFulfillRequest(t *testing.T) {
 		}
 	}
 
-	if serverHit {
+	if serverHit.Load() {
 		t.Error("HTTP server should NOT have been hit with fulfillRequest")
 	}
 }

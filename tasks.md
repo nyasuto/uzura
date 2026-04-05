@@ -1013,12 +1013,12 @@ Cloudflare Managed Challenge の基本的な回避を試みる。
 
 ### Task 16.3: リクエストパターンの改善
 
-- [ ] 初回アクセス時の振る舞いを一般ブラウザに近づける
+- [x] 初回アクセス時の振る舞いを一般ブラウザに近づける
   - favicon.ico の自動リクエスト
   - CSS/JS リソースの参照（実際にはダウンロードしない）
-- [ ] リファラーヘッダーの適切な設定
-- [ ] Connection: keep-alive の維持
-- [ ] テスト: リクエストパターンの比較
+- [x] リファラーヘッダーの適切な設定
+- [x] Connection: keep-alive の維持
+- [x] テスト: リクエストパターンの比較
 
 ### Task 16.4: Phase 16 Verification
 

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -259,9 +260,12 @@ func TestFetchFailRequest(t *testing.T) {
 }
 
 func TestFetchPatternMatching(t *testing.T) {
-	var hitCount int
+	var hitCount atomic.Int32
 	s, html := startFetchServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		hitCount++
+		// Only count the main document request, not background resource hints.
+		if r.URL.Path == "/" || r.URL.Path == "" {
+			hitCount.Add(1)
+		}
 		w.Header().Set("Content-Type", "text/html")
 		w.Write([]byte("<html></html>"))
 	}))
@@ -307,8 +311,8 @@ func TestFetchPatternMatching(t *testing.T) {
 	if gotPaused {
 		t.Error("Fetch.requestPaused should NOT fire for non-matching URL pattern")
 	}
-	if hitCount != 1 {
-		t.Errorf("expected exactly 1 HTTP request, got %d", hitCount)
+	if got := hitCount.Load(); got != 1 {
+		t.Errorf("expected exactly 1 HTTP request, got %d", got)
 	}
 }
 

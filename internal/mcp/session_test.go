@@ -10,8 +10,11 @@ import (
 
 func TestPageSession_CachesPage(t *testing.T) {
 	var fetchCount atomic.Int32
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		fetchCount.Add(1)
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Only count page navigations, not background resource hints.
+		if r.URL.Path == "/" || r.URL.Path == "" {
+			fetchCount.Add(1)
+		}
 		w.Header().Set("Content-Type", "text/html")
 		fmt.Fprint(w, `<html><body><h1>Cached</h1></body></html>`)
 	}))
@@ -46,7 +49,10 @@ func TestPageSession_CachesPage(t *testing.T) {
 func TestPageSession_DifferentURLsNotCached(t *testing.T) {
 	var fetchCount atomic.Int32
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fetchCount.Add(1)
+		// Only count page navigations (/a and /b), not background resource hints.
+		if r.URL.Path == "/a" || r.URL.Path == "/b" {
+			fetchCount.Add(1)
+		}
 		w.Header().Set("Content-Type", "text/html")
 		fmt.Fprintf(w, `<html><body>%s</body></html>`, r.URL.Path)
 	}))

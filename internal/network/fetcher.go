@@ -205,6 +205,7 @@ func (f *Fetcher) doFetch(ctx context.Context, url string, extraHeaders http.Hea
 	req.Header.Set("Sec-Fetch-Site", "none")
 	req.Header.Set("Sec-Fetch-User", "?1")
 	req.Header.Set("Upgrade-Insecure-Requests", "1")
+	req.Header.Set("Connection", "keep-alive")
 	for k, vals := range extraHeaders {
 		for _, v := range vals {
 			req.Header.Set(k, v)
