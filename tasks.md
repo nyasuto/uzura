@@ -852,7 +852,6 @@ MCPの `browse` ツールで `format: "markdown"` を指定すると使える。
 - [x] Claude Code からの実際のワークフローテスト:
       「このサイトにログインして」→ semantic_tree → interact の流れ
 
-
 ## Phase 13: text出力ノイズ除去 & User-Agent改善
 
 browse format=text の出力から不要な script/style コンテンツを除去し、
@@ -884,9 +883,9 @@ Cloudflare/ボット検知でブロックされた。
 
 - [x] 現在のデフォルト User-Agent を確認
 - [x] 一般的な Chrome User-Agent 文字列に変更
-  （例: `Mozilla/5.0 ... Chrome/130.0.0.0 Safari/537.36`）
+      （例: `Mozilla/5.0 ... Chrome/130.0.0.0 Safari/537.36`）
 - [x] `Accept`, `Accept-Language`, `Accept-Encoding` ヘッダーの追加
-- [x] Sec-Fetch-* ヘッダー群の追加（Sec-Fetch-Mode, Sec-Fetch-Site, Sec-Fetch-Dest）
+- [x] Sec-Fetch-\* ヘッダー群の追加（Sec-Fetch-Mode, Sec-Fetch-Site, Sec-Fetch-Dest）
 - [x] テスト: httptest.Server でヘッダーの送信を確認
 
 ### Task 13.4: TLS フィンガープリントの改善
@@ -897,8 +896,10 @@ Cloudflare/ボット検知でブロックされた。
 - [x] テスト: TLS 接続が一般ブラウザと同等のフィンガープリントになることを確認
 
 ### Task 13.5: Phase 13 Verification
-30サイトテスト内容は uzura-site-test-prompt.md を参照
 
+30サイトテスト内容は uzura-site-test-prompt.md を参照
+重要事項： MCPサーバはすでに再起動したのでテストを実行できる
+テストに失敗する場合、あなたはMCPサーバを自身で再ビルド再起動してもよい
 - [ ] 30サイト互換性テストの再実行（MCPサーバー再起動後に実施）
 - [x] text出力サイズの削減率を測定（99.9%削減確認、目標50%超を大幅達成）
 - [ ] User-Agent 改善後のボット検知回避率を確認（MCPサーバー再起動後に実施）
@@ -1030,9 +1031,73 @@ Cloudflare Managed Challenge の基本的な回避を試みる。
 ### Phase 16 Status: IMPLEMENTATION COMPLETE ✅
 
 実装内容：
+
 - ✅ Cloudflare challenge ページの検出（HTTP ヘッダ & HTML内容）
 - ✅ Cookie ベースの challenge 対応（`__cf_bm`, `cf_clearance`）
 - ✅ リクエストパターンの改善（favicon, Referer, keep-alive）
 - ✅ エンコーディング・圧縮処理（gzip, brotli, deflate; Shift_JIS, EUC-JP 等）
 
 MCPサーバー再起動後に 30サイト互換性テストを実施予定
+
+---
+
+## Phase 17: MCP サブプロセステスト（Ralph Loop 自律化）
+
+Ralph Loop の「MCPサーバー再起動待ち」を解消する。
+uzura バイナリをサブプロセスとして起動し、stdin/stdout の JSON-RPC で
+MCP ツールを検証するテストフレームワークを構築する。
+これにより `go build && go test` だけでフェーズ検証が完結する。
+
+### Task 17.1: MCP サブプロセステストヘルパー
+
+- [x] `internal/mcp/testutil_test.go`: テストヘルパー作成
+  - `go build` でバイナリをビルド
+  - `uzura mcp` をサブプロセスとして起動（stdin/stdout パイプ）
+  - JSON-RPC の `initialize` ハンドシェイクを実行
+  - テスト終了時にプロセスを graceful shutdown
+- [x] ヘルパー関数: `callTool(name, params) (result, error)` — JSON-RPC の `tools/call` を送受信
+- [x] タイムアウト制御（デフォルト30秒、テストごとにオーバーライド可能）
+- [x] テスト: ヘルパー自体の起動・停止・ハンドシェイクが正常に動作
+
+### Task 17.2: browse ツールのサブプロセステスト
+
+- [ ] httptest.Server でテスト用ページを提供
+- [ ] `browse format=text` の基本テスト（コンテンツ取得確認）
+- [ ] `browse format=markdown` のテスト（メタデータ・本文抽出確認）
+- [ ] script/style 除去の確認（Phase 13 の検証）
+- [ ] 大規模HTML（100KB超）での動作確認
+- [ ] テスト: レスポンスサイズ制御（`max_length` パラメータ）
+
+### Task 17.3: semantic_tree / query ツールのサブプロセステスト
+
+- [ ] `semantic_tree` の基本テスト（ランドマーク・インタラクティブ要素の検出）
+- [ ] `query` の基本テスト（h1取得、リンク数取得、属性取得）
+- [ ] `query` の limit/offset ページネーションテスト（Phase 15 の検証）
+- [ ] 巨大DOM（1000要素超）での安定性テスト
+
+### Task 17.4: 実サイト互換性テスト（自動化）
+
+- [ ] `internal/mcp/compat_test.go`: 実サイトへの接続テスト（`-tags compat` でビルドタグ分離）
+- [ ] テスト対象（最小セット5サイト）:
+  - https://news.ycombinator.com/ — シンプルHTML
+  - https://go.dev/ — 静的サイト
+  - https://en.wikipedia.org/wiki/Web_browser — 大規模
+  - https://react.dev/ — SSG/SPA
+  - https://stackoverflow.com/ — Cloudflare（改善確認）
+- [ ] 各サイトで browse text, browse markdown, semantic_tree, query h1 を実行
+- [ ] 結果の成否判定（空でないこと、タイムアウトしないこと）
+- [ ] `go test -tags compat -run TestCompat ./internal/mcp/` で実行
+
+### Task 17.5: Phase 13-16 の残存タスクをテストに移行
+
+- [ ] Phase 13.5 の「MCPサーバー再起動後に実施」タスクを Task 17.4 のテストで代替
+- [ ] Phase 15.4 の「MCPサーバー再起動後に実施」タスクを Task 17.2/17.3 のテストで代替
+- [ ] Phase 16.4 の「MCPサーバー再起動後に実施」タスクを Task 17.4 のテストで代替
+- [ ] tasks.md の残存 `- [ ]` を全て `- [x]` に更新（テスト代替完了として）
+
+### Task 17.6: Phase 17 Verification
+
+- [ ] `go test ./internal/mcp/ -race` 全パス（サブプロセステスト含む）
+- [ ] `go test -tags compat ./internal/mcp/ -race` 実サイトテスト全パス
+- [ ] Ralph Loop で `go build && go test ./... -race` だけでフェーズ検証が完結することを確認
+- [ ] tasks.md に `- [ ]` が0件であることを確認
