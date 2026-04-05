@@ -105,6 +105,10 @@ func (p *Page) Navigate(ctx context.Context, url string) error {
 	respURL := resp.Request.URL.String()
 	mimeType := mimeFromResponse(resp)
 
+	if decompErr := network.DecompressResponse(resp); decompErr != nil {
+		return fmt.Errorf("navigate decompress %s: %w", url, decompErr)
+	}
+
 	reader, err := network.DecodeResponse(resp)
 	if err != nil {
 		return fmt.Errorf("navigate decode %s: %w", url, err)

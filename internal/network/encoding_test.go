@@ -1,15 +1,126 @@
 package network
 
 import (
+	"bytes"
+	"compress/flate"
+	"compress/gzip"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
+	"github.com/andybalholm/brotli"
 	"golang.org/x/text/encoding/charmap"
 	"golang.org/x/text/encoding/japanese"
 	"golang.org/x/text/transform"
 )
+
+func TestDecompressResponseGzip(t *testing.T) {
+	body := "<html><body>gzip compressed</body></html>"
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Header().Set("Content-Encoding", "gzip")
+		var buf bytes.Buffer
+		gz := gzip.NewWriter(&buf)
+		gz.Write([]byte(body))
+		gz.Close()
+		w.Write(buf.Bytes())
+	}))
+	defer srv.Close()
+
+	resp, err := http.Get(srv.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	if err := DecompressResponse(resp); err != nil {
+		t.Fatal(err)
+	}
+	got, _ := io.ReadAll(resp.Body)
+	if string(got) != body {
+		t.Errorf("got %q, want %q", got, body)
+	}
+}
+
+func TestDecompressResponseBrotli(t *testing.T) {
+	body := "<html><body>brotli compressed</body></html>"
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Header().Set("Content-Encoding", "br")
+		var buf bytes.Buffer
+		bw := brotli.NewWriter(&buf)
+		bw.Write([]byte(body))
+		bw.Close()
+		w.Write(buf.Bytes())
+	}))
+	defer srv.Close()
+
+	resp, err := http.Get(srv.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	if err := DecompressResponse(resp); err != nil {
+		t.Fatal(err)
+	}
+	got, _ := io.ReadAll(resp.Body)
+	if string(got) != body {
+		t.Errorf("got %q, want %q", got, body)
+	}
+}
+
+func TestDecompressResponseDeflate(t *testing.T) {
+	body := "<html><body>deflate compressed</body></html>"
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Header().Set("Content-Encoding", "deflate")
+		var buf bytes.Buffer
+		fw, _ := flate.NewWriter(&buf, flate.DefaultCompression)
+		fw.Write([]byte(body))
+		fw.Close()
+		w.Write(buf.Bytes())
+	}))
+	defer srv.Close()
+
+	resp, err := http.Get(srv.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	if err := DecompressResponse(resp); err != nil {
+		t.Fatal(err)
+	}
+	got, _ := io.ReadAll(resp.Body)
+	if string(got) != body {
+		t.Errorf("got %q, want %q", got, body)
+	}
+}
+
+func TestDecompressResponseNoEncoding(t *testing.T) {
+	body := "<html><body>plain text</body></html>"
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		w.Write([]byte(body))
+	}))
+	defer srv.Close()
+
+	resp, err := http.Get(srv.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	if err := DecompressResponse(resp); err != nil {
+		t.Fatal(err)
+	}
+	got, _ := io.ReadAll(resp.Body)
+	if string(got) != body {
+		t.Errorf("got %q, want %q", got, body)
+	}
+}
 
 func TestDecodeResponseUTF8(t *testing.T) {
 	body := "<html><body>hello</body></html>"

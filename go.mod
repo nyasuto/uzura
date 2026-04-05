@@ -12,6 +12,7 @@ require (
 
 require (
 	codeberg.org/readeck/go-readability/v2 v2.1.1 // indirect
+	github.com/andybalholm/brotli v1.2.1 // indirect
 	github.com/araddon/dateparse v0.0.0-20210429162001-6b43995a97de // indirect
 	github.com/dlclark/regexp2 v1.11.4 // indirect
 	github.com/go-shiori/dom v0.0.0-20230515143342-73569d674e1c // indirect

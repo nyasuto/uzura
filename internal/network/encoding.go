@@ -2,18 +2,52 @@ package network
 
 import (
 	"bytes"
+	"compress/flate"
+	"compress/gzip"
 	"fmt"
 	"io"
 	"mime"
 	"net/http"
 	"regexp"
+	"strings"
 
+	"github.com/andybalholm/brotli"
 	"golang.org/x/text/encoding"
 	"golang.org/x/text/encoding/htmlindex"
 	"golang.org/x/text/transform"
 )
 
 var metaCharsetRe = regexp.MustCompile(`(?i)<meta[^>]+charset=["']?([^\s"';>]+)`)
+
+// DecompressResponse replaces resp.Body with a decompressed reader based on
+// the Content-Encoding header (gzip, br, deflate). If no content encoding
+// is present, the body is left unchanged.
+func DecompressResponse(resp *http.Response) error {
+	ce := strings.TrimSpace(strings.ToLower(resp.Header.Get("Content-Encoding")))
+	if ce == "" || ce == "identity" {
+		return nil
+	}
+
+	var reader io.Reader
+	switch ce {
+	case "gzip":
+		gr, err := gzip.NewReader(resp.Body)
+		if err != nil {
+			return fmt.Errorf("gzip decompression: %w", err)
+		}
+		reader = gr
+	case "br":
+		reader = brotli.NewReader(resp.Body)
+	case "deflate":
+		reader = flate.NewReader(resp.Body)
+	default:
+		return nil
+	}
+
+	resp.Body = io.NopCloser(reader)
+	resp.Header.Del("Content-Encoding")
+	return nil
+}
 
 // DecodeResponse returns an io.Reader that decodes the response body to UTF-8.
 // It detects the charset from the Content-Type header first, then falls back

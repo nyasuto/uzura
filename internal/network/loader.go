@@ -29,6 +29,10 @@ func (f *Fetcher) LoadDocumentContext(ctx context.Context, url string) (*dom.Doc
 	}
 	defer resp.Body.Close()
 
+	if decompErr := DecompressResponse(resp); decompErr != nil {
+		return nil, fmt.Errorf("decompressing %s: %w", url, decompErr)
+	}
+
 	reader, err := DecodeResponse(resp)
 	if err != nil {
 		return nil, fmt.Errorf("decoding %s: %w", url, err)
