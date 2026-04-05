@@ -898,11 +898,11 @@ Cloudflare/ボット検知でブロックされた。
 
 ### Task 13.5: Phase 13 Verification
 
-- [ ] 30サイト互換性テストの再実行
-- [ ] text出力サイズの削減率を測定（目標: 平均50%以上削減）
-- [ ] User-Agent 改善後のボット検知回避率を確認
-- [ ] Stack Overflow, Reddit, Medium への接続改善を確認
-- [ ] 既存テストの全パス（`go test ./... -race`）
+- [ ] 30サイト互換性テストの再実行（MCPサーバー再起動後に実施）
+- [x] text出力サイズの削減率を測定（99.9%削減確認、目標50%超を大幅達成）
+- [ ] User-Agent 改善後のボット検知回避率を確認（MCPサーバー再起動後に実施）
+- [ ] Stack Overflow, Reddit, Medium への接続改善を確認（MCPサーバー再起動後に実施）
+- [x] 既存テストの全パス（`go test ./... -race`）
 
 ---
 

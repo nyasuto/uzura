@@ -235,6 +235,103 @@ func TestBrowse_MarkdownFallback(t *testing.T) {
 	}
 }
 
+func TestBrowse_TextSkipsScriptStyleHidden(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		fmt.Fprint(w, `<!DOCTYPE html>
+<html>
+<head>
+<script>var x = 1; console.log('noise');</script>
+<style>body { color: red; font-size: 14px; }</style>
+</head>
+<body>
+<p>Visible paragraph</p>
+<script>alert('more noise');</script>
+<div hidden>Hidden content</div>
+<span aria-hidden="true">Icon glyph</span>
+<div style="display:none">Invisible div</div>
+<p>Another visible paragraph</p>
+</body>
+</html>`)
+	}))
+	defer ts.Close()
+
+	s := newTestServer(ts)
+	args := fmt.Sprintf(`{"url":%q}`, ts.URL)
+	_, result := callTool(s, "browse", args)
+
+	if result == nil || result.IsError {
+		t.Fatal("expected successful result")
+	}
+	text := result.Content[0].Text
+
+	// Should contain visible text
+	if !strings.Contains(text, "Visible paragraph") {
+		t.Error("output should contain 'Visible paragraph'")
+	}
+	if !strings.Contains(text, "Another visible paragraph") {
+		t.Error("output should contain 'Another visible paragraph'")
+	}
+
+	// Should NOT contain script content
+	if strings.Contains(text, "console.log") {
+		t.Errorf("should not contain script content, got: %s", text)
+	}
+	if strings.Contains(text, "alert(") {
+		t.Errorf("should not contain script content 'alert', got: %s", text)
+	}
+
+	// Should NOT contain style content
+	if strings.Contains(text, "font-size") {
+		t.Errorf("should not contain style content, got: %s", text)
+	}
+
+	// Should NOT contain hidden content
+	if strings.Contains(text, "Hidden content") {
+		t.Errorf("should not contain hidden content, got: %s", text)
+	}
+	if strings.Contains(text, "Icon glyph") {
+		t.Errorf("should not contain aria-hidden content, got: %s", text)
+	}
+	if strings.Contains(text, "Invisible div") {
+		t.Errorf("should not contain display:none content, got: %s", text)
+	}
+}
+
+func TestBrowse_TextSizeReduction(t *testing.T) {
+	var sb strings.Builder
+	sb.WriteString(`<!DOCTYPE html><html><head>`)
+	for i := 0; i < 50; i++ {
+		fmt.Fprintf(&sb, "<script>var longVar%d = %s;</script>", i, strings.Repeat("x", 200))
+	}
+	for i := 0; i < 20; i++ {
+		fmt.Fprintf(&sb, "<style>.c%d { bg: url(%s); }</style>", i, strings.Repeat("data", 100))
+	}
+	sb.WriteString(`</head><body><p>Real content here</p></body></html>`)
+	rawHTML := sb.String()
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		w.Write([]byte(rawHTML))
+	}))
+	defer ts.Close()
+
+	s := newTestServer(ts)
+	args := fmt.Sprintf(`{"url":%q}`, ts.URL)
+	_, result := callTool(s, "browse", args)
+
+	text := result.Content[0].Text
+	if !strings.Contains(text, "Real content") {
+		t.Error("output should contain real content")
+	}
+
+	ratio := float64(len(text)) / float64(len(rawHTML))
+	t.Logf("Size reduction: raw=%d, output=%d, ratio=%.4f", len(rawHTML), len(text), ratio)
+	if ratio > 0.1 {
+		t.Errorf("output ratio = %.2f, expected < 0.1 (90%% reduction)", ratio)
+	}
+}
+
 func TestBrowse_DefaultFormatIsText(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
