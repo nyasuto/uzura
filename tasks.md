@@ -897,6 +897,7 @@ Cloudflare/ボット検知でブロックされた。
 - [x] テスト: TLS 接続が一般ブラウザと同等のフィンガープリントになることを確認
 
 ### Task 13.5: Phase 13 Verification
+30サイトテスト内容は uzura-site-test-prompt.md を参照
 
 - [ ] 30サイト互換性テストの再実行（MCPサーバー再起動後に実施）
 - [x] text出力サイズの削減率を測定（99.9%削減確認、目標50%超を大幅達成）
@@ -916,10 +917,10 @@ SPA サイトや構造が特殊なサイトでの markdown 出力品質を向上
 
 ### Task 14.1: readability フォールバックの改善
 
-- [ ] readability 失敗を検知する基準の明確化（出力が短すぎる、本文なし等）
-- [ ] フォールバック戦略: `<main>` → `<article>` → `<body>` の順で本文領域を探索
-- [ ] semantic_tree ベースの markdown 生成（ランドマーク構造を活用）
-- [ ] テスト: readability 成功/失敗/部分成功の各パターン
+- [x] readability 失敗を検知する基準の明確化（出力が短すぎる、本文なし等）
+- [x] フォールバック戦略: `<main>` → `<article>` → `<body>` の順で本文領域を探索
+- [x] semantic_tree ベースの markdown 生成（ランドマーク構造を活用）
+- [x] テスト: readability 成功/失敗/部分成功の各パターン
 
 ### Task 14.2: noscript コンテンツの活用
 

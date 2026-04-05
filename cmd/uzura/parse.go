@@ -72,14 +72,7 @@ func estimateTokens(s string) int {
 }
 
 func renderDocMarkdown(doc *dom.Document, pageURL string) string {
-	meta := markdown.ExtractMetadata(doc, pageURL)
-	cloned, ok := doc.CloneNode(true).(*dom.Document)
-	if !ok {
-		return markdown.FormatFrontmatter(meta) + "\n" + doc.DocumentElement().TextContent()
-	}
-	markdown.Clean(cloned, true)
-	body := markdown.Convert(cloned)
-	return markdown.FormatFrontmatter(meta) + "\n" + body
+	return markdown.RenderWithFallback(doc, pageURL)
 }
 
 func printTree(w io.Writer, n dom.Node, depth int) {
