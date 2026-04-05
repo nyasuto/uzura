@@ -196,3 +196,64 @@ func TestConvert_WhitespaceCollapse(t *testing.T) {
 		t.Errorf("whitespace not collapsed: %q", got)
 	}
 }
+
+func TestConvert_DataURISkipped(t *testing.T) {
+	tests := []struct {
+		name string
+		html string
+		want string // should NOT appear
+	}{
+		{
+			name: "svg data URI",
+			html: `<p><img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciLz4=" alt="icon"></p>`,
+			want: "data:image/svg+xml",
+		},
+		{
+			name: "png data URI",
+			html: `<p><img src="data:image/png;base64,iVBORw0KGgo=" alt="pixel"></p>`,
+			want: "data:image/png",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			doc := parseHTML(t, tt.html)
+			got := Convert(doc)
+			if strings.Contains(got, tt.want) {
+				t.Errorf("output should not contain data URI %q: %q", tt.want, got)
+			}
+		})
+	}
+}
+
+func TestConvert_NormalImageKept(t *testing.T) {
+	doc := parseHTML(t, `<img src="https://example.com/pic.jpg" alt="photo">`)
+	got := Convert(doc)
+	if !strings.Contains(got, "![photo](https://example.com/pic.jpg)") {
+		t.Errorf("normal image should be kept: %q", got)
+	}
+}
+
+func TestConvert_SVGElementSkipped(t *testing.T) {
+	doc := parseHTML(t, `<p>Before</p><svg xmlns="http://www.w3.org/2000/svg"><circle cx="50" cy="50" r="40"/></svg><p>After</p>`)
+	got := Convert(doc)
+	if strings.Contains(got, "circle") {
+		t.Errorf("SVG element content should be skipped: %q", got)
+	}
+	if !strings.Contains(got, "Before") || !strings.Contains(got, "After") {
+		t.Errorf("surrounding content should be preserved: %q", got)
+	}
+}
+
+func TestConvert_ExcessiveBlankLinesNormalized(t *testing.T) {
+	// Create HTML that would generate many blank lines
+	html := `<p>First</p><p></p><p></p><p></p><p>Second</p>`
+	doc := parseHTML(t, html)
+	got := Convert(doc)
+	// Should never have 3+ consecutive newlines
+	if strings.Contains(got, "\n\n\n") {
+		t.Errorf("excessive blank lines should be normalized: %q", got)
+	}
+	if !strings.Contains(got, "First") || !strings.Contains(got, "Second") {
+		t.Errorf("content should be preserved: %q", got)
+	}
+}

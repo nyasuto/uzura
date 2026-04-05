@@ -2,17 +2,24 @@ package markdown
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/nyasuto/uzura/internal/dom"
 )
+
+// reExcessiveBlankLines matches 3 or more consecutive newlines.
+var reExcessiveBlankLines = regexp.MustCompile(`\n{3,}`)
 
 // Convert transforms a DOM node subtree into Markdown text.
 func Convert(node dom.Node) string {
 	var sb strings.Builder
 	c := &converter{buf: &sb}
 	c.walk(node)
-	return strings.TrimSpace(sb.String()) + "\n"
+	result := strings.TrimSpace(sb.String())
+	// Normalize excessive blank lines (3+ newlines → 2)
+	result = reExcessiveBlankLines.ReplaceAllString(result, "\n\n")
+	return result + "\n"
 }
 
 type converter struct {
@@ -87,6 +94,9 @@ func (c *converter) handleElement(el *dom.Element) {
 		c.handleBlockquote(el)
 	case "table":
 		c.handleTable(el)
+	case "svg":
+		// Skip SVG elements entirely — they bloat markdown output
+		return
 	case "div", "section", "article", "main", "span", "header",
 		"footer", "nav", "aside", "figure", "figcaption":
 		c.walkChildren(el)
@@ -165,8 +175,12 @@ func (c *converter) handleLink(el *dom.Element) {
 }
 
 func (c *converter) handleImage(el *dom.Element) {
-	alt := el.GetAttribute("alt")
 	src := el.GetAttribute("src")
+	// Skip data URIs (SVG, base64 images) — they bloat markdown output
+	if strings.HasPrefix(src, "data:") {
+		return
+	}
+	alt := el.GetAttribute("alt")
 	c.buf.WriteString("![")
 	c.buf.WriteString(alt)
 	c.buf.WriteString("](")
