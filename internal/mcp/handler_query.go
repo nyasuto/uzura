@@ -8,11 +8,23 @@ import (
 	"github.com/nyasuto/uzura/internal/dom"
 )
 
+const defaultQueryLimit = 100
+
 // QueryParams represents the arguments for the query tool.
 type QueryParams struct {
 	URL       string `json:"url"`
 	Selector  string `json:"selector"`
 	Attribute string `json:"attribute,omitempty"`
+	Limit     int    `json:"limit,omitempty"`
+	Offset    int    `json:"offset,omitempty"`
+}
+
+// QueryResponse wraps query results with pagination info.
+type QueryResponse struct {
+	Total    int           `json:"total"`
+	Returned int           `json:"returned"`
+	Offset   int           `json:"offset"`
+	Results  []QueryResult `json:"results"`
 }
 
 // QueryResult represents a single matched element.
@@ -41,6 +53,14 @@ func QueryTool() Tool {
 		"attribute": {
 			"type": "string",
 			"description": "取得する属性名（省略時はtextContent）"
+		},
+		"limit": {
+			"type": "integer",
+			"description": "返却する最大件数（デフォルト: 100）"
+		},
+		"offset": {
+			"type": "integer",
+			"description": "結果のオフセット（ページネーション用、デフォルト: 0）"
 		}
 	},
 	"required": ["url", "selector"]
@@ -94,8 +114,30 @@ func handleQuery(session *PageSession, arguments json.RawMessage) (*ToolCallResu
 		}, nil
 	}
 
-	results := make([]QueryResult, 0, len(elements))
-	for _, el := range elements {
+	total := len(elements)
+
+	// Apply default limit
+	limit := params.Limit
+	if limit <= 0 {
+		limit = defaultQueryLimit
+	}
+	offset := params.Offset
+	if offset < 0 {
+		offset = 0
+	}
+
+	// Slice elements by offset/limit
+	if offset > total {
+		offset = total
+	}
+	end := offset + limit
+	if end > total {
+		end = total
+	}
+	sliced := elements[offset:end]
+
+	results := make([]QueryResult, 0, len(sliced))
+	for _, el := range sliced {
 		qr := QueryResult{
 			Text:      el.TextContent(),
 			OuterHTML: dom.OuterHTML(el),
@@ -106,7 +148,14 @@ func handleQuery(session *PageSession, arguments json.RawMessage) (*ToolCallResu
 		results = append(results, qr)
 	}
 
-	data, err := json.Marshal(results)
+	resp := QueryResponse{
+		Total:    total,
+		Returned: len(results),
+		Offset:   offset,
+		Results:  results,
+	}
+
+	data, err := json.Marshal(resp)
 	if err != nil {
 		return &ToolCallResult{
 			Content: []ToolContent{{Type: "text", Text: fmt.Sprintf("marshal error: %s", err)}},
