@@ -8,7 +8,7 @@ require (
 	github.com/andybalholm/cascadia v1.3.3
 	github.com/coder/websocket v1.8.14
 	github.com/dop251/goja v0.0.0-20260311135729-065cd970411c
-	golang.org/x/net v0.52.0
+	golang.org/x/net v0.53.0
 	golang.org/x/text v0.36.0
 )
 
