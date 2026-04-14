@@ -135,6 +135,10 @@ func TestNavigateWithCustomFetcher(t *testing.T) {
 func TestNavigateReplacesDocument(t *testing.T) {
 	calls := 0
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/" {
+			http.NotFound(w, r)
+			return
+		}
 		calls++
 		w.Header().Set("Content-Type", "text/html")
 		if calls == 1 {
