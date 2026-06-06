@@ -5,7 +5,7 @@ go 1.26.1
 require (
 	codeberg.org/readeck/go-readability/v2 v2.1.1
 	github.com/andybalholm/brotli v1.2.1
-	github.com/andybalholm/cascadia v1.3.3
+	github.com/andybalholm/cascadia v1.3.4
 	github.com/coder/websocket v1.8.14
 	github.com/dop251/goja v0.0.0-20260311135729-065cd970411c
 	golang.org/x/net v0.55.0
