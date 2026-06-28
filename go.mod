@@ -3,7 +3,7 @@ module github.com/nyasuto/uzura
 go 1.26.1
 
 require (
-	codeberg.org/readeck/go-readability/v2 v2.1.1
+	codeberg.org/readeck/go-readability/v2 v2.1.2
 	github.com/andybalholm/brotli v1.2.1
 	github.com/andybalholm/cascadia v1.3.4
 	github.com/coder/websocket v1.8.14
@@ -13,10 +13,10 @@ require (
 )
 
 require (
-	github.com/araddon/dateparse v0.0.0-20210429162001-6b43995a97de // indirect
 	github.com/dlclark/regexp2 v1.11.4 // indirect
 	github.com/go-shiori/dom v0.0.0-20230515143342-73569d674e1c // indirect
 	github.com/go-sourcemap/sourcemap v2.1.3+incompatible // indirect
 	github.com/gogs/chardet v0.0.0-20211120154057-b7413eaefb8f // indirect
 	github.com/google/pprof v0.0.0-20230207041349-798e818bf904 // indirect
+	github.com/itlightning/dateparse v0.2.1 // indirect
 )
