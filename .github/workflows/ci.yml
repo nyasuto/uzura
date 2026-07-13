@@ -136,24 +136,41 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
+    env:
+      # golang.org/x/perf has no semver tags; pin the latest pseudo-version.
+      BENCHSTAT_VERSION: v0.0.0-20260709024250-82a0b07e230d
     steps:
       - uses: actions/checkout@v7
+        with:
+          # Full history so the merge-base with the target branch is reachable.
+          fetch-depth: 0
 
       - uses: actions/setup-go@v6
         with:
           go-version: "1.26"
           check-latest: true
 
-      - name: Run benchmarks
-        run: go test ./internal/bench/ -bench=. -benchmem -count=3 > benchmark.txt
+      - name: Run benchmarks (base)
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          git checkout "$(git merge-base "origin/$BASE_REF" HEAD)"
+          go test ./internal/bench/ -bench=. -benchmem -count=5 > base.txt
 
-      - name: Format benchmark results
+      - name: Run benchmarks (head)
+        env:
+          HEAD_SHA: ${{ github.sha }}
+        run: |
+          git checkout "$HEAD_SHA"
+          go test ./internal/bench/ -bench=. -benchmem -count=5 > head.txt
+
+      - name: Compare with benchstat
         id: bench
         run: |
           {
-            echo 'report<<EOF'
-            bash scripts/bench-report.sh benchmark.txt 2>&1 | grep -A 999 '=== Uzura'
-            echo 'EOF'
+            echo 'report<<BENCHSTAT_EOF'
+            go run "golang.org/x/perf/cmd/benchstat@$BENCHSTAT_VERSION" base.txt head.txt 2>&1
+            echo 'BENCHSTAT_EOF'
           } >> "$GITHUB_OUTPUT"
 
       - name: Comment on PR
@@ -161,8 +178,10 @@ jobs:
         with:
           header: benchmark
           message: |
-            ## Benchmark Results
+            ## Benchmark Diff (base vs PR)
 
+            ```
             ${{ steps.bench.outputs.report }}
+            ```
 
-            <sub>Commit: ${{ github.sha }}</sub>
+            <sub>How to read: negative % = faster/less memory in this PR. `~` means no statistically significant difference; `geomean` is the geometric mean across all benchmarks. Commit: ${{ github.sha }}</sub>
