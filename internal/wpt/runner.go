@@ -33,8 +33,10 @@ type Runner struct {
 // Returns a Summary of all results.
 func (r *Runner) RunDir(dir string) (*Summary, error) {
 	root := dir
+	joined := false
 	if r.WPTDir != "" && !filepath.IsAbs(dir) {
 		root = filepath.Join(r.WPTDir, dir)
+		joined = true
 	}
 
 	var files []string
@@ -53,6 +55,13 @@ func (r *Runner) RunDir(dir string) (*Summary, error) {
 
 	summary := &Summary{}
 	for _, f := range files {
+		// Walked paths already include WPTDir when root was joined above;
+		// hand RunFile a WPTDir-relative path so it isn't joined twice.
+		if joined {
+			if rel, err := filepath.Rel(r.WPTDir, f); err == nil {
+				f = rel
+			}
+		}
 		result := r.RunFile(f)
 		summary.Add(result)
 	}
@@ -102,8 +111,18 @@ func (r *Runner) RunFile(path string) *TestResult {
 	return result
 }
 
-func (r *Runner) runSingle(absPath, relPath string) *TestResult {
-	result := &TestResult{Test: relPath}
+func (r *Runner) runSingle(absPath, relPath string) (result *TestResult) {
+	result = &TestResult{Test: relPath}
+
+	// The JS engine can panic on inputs it fails to parse (e.g. goja on
+	// the \u{10ffff} code-point escape). A single test file must not take
+	// down the whole run: record it as FAIL and continue.
+	defer func() {
+		if rec := recover(); rec != nil {
+			result.Status = StatusFail
+			result.Message = fmt.Sprintf("panic during test execution: %v", rec)
+		}
+	}()
 
 	// Read the test file.
 	data, err := os.ReadFile(absPath)

@@ -323,3 +323,57 @@ func TestStatusJSON(t *testing.T) {
 		}
 	}
 }
+
+// Regression test for issue #58: when WPTDir is a relative path (as in
+// `make wpt` with testdata/wpt), RunDir collected already-joined paths and
+// RunFile joined WPTDir again, so every test failed with a read error.
+func TestRunDir_RelativeWPTDir(t *testing.T) {
+	parent := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(parent, "wptroot"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Chdir(parent)
+
+	writeTestFile(t, "wptroot", filepath.Join("dom", "a.html"), `<!DOCTYPE html>
+<script>
+test(function() { assert_true(true); }, "test a");
+</script>`)
+
+	r := &Runner{WPTDir: "wptroot"}
+	summary, err := r.RunDir("dom")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if summary.Total != 1 {
+		t.Fatalf("expected 1 total, got %d", summary.Total)
+	}
+	if summary.Pass != 1 {
+		res := summary.Results[0]
+		t.Errorf("expected 1 pass, got %d (status=%s message=%q)", summary.Pass, res.Status, res.Message)
+	}
+}
+
+// Regression test for issue #59: a goja parser panic (e.g. on the code-point
+// escape \u{10ffff}) must not crash the runner process; the test file is
+// reported as FAIL and the run continues.
+func TestRunFile_ScriptPanicRecovered(t *testing.T) {
+	dir := t.TempDir()
+	writeTestFile(t, dir, "panic.html", `<!DOCTYPE html>
+<script>
+test(function() {
+    var s = "\u{10ffff}";
+    assert_true(s.length > 0);
+}, "max code point escape");
+</script>`)
+
+	r := &Runner{WPTDir: dir}
+	result := r.RunFile("panic.html")
+
+	if result.Status != StatusFail {
+		t.Errorf("expected FAIL for panicking script, got %s", result.Status)
+	}
+	if result.Message == "" {
+		t.Error("expected panic message in result, got empty")
+	}
+}
