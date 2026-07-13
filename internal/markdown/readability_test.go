@@ -188,3 +188,58 @@ func TestExtract_InvalidURL(t *testing.T) {
 		t.Error("expected error for invalid URL")
 	}
 }
+
+// Regression test for issue #31: readability's "unlikely candidates" heuristic
+// removes inline elements whose class matches noise patterns (e.g. "extra"
+// matching Nextra's class="nextra-code"). Inline phrasing content must survive
+// extraction regardless of its class or id.
+func TestExtract_PreservesInlineElementsWithUnlikelyClasses(t *testing.T) {
+	longPara := strings.Repeat("This is a long paragraph of article body text so that readability succeeds. ", 8)
+
+	tests := []struct {
+		name   string
+		inline string
+		want   string
+	}{
+		{
+			name:   "code with nextra-code class",
+			inline: `<code class="nextra-code" dir="ltr">goto</code>`,
+			want:   "goto",
+		},
+		{
+			name:   "span with header-like class",
+			inline: `<span class="header-icon">spanned</span>`,
+			want:   "spanned",
+		},
+		{
+			name:   "em with sidebar-like id",
+			inline: `<em id="sidebar-note">emphasized</em>`,
+			want:   "emphasized",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			page := `<!DOCTYPE html><html><head><title>Test Article</title></head><body><article>
+<h1>Test Article</h1>
+<p>` + longPara + `</p>
+<p>Inline content check: ` + tt.inline + ` end of sentence.</p>
+<p>` + longPara + `</p>
+</article></body></html>`
+
+			doc, err := htmlparser.Parse(strings.NewReader(page))
+			if err != nil {
+				t.Fatalf("parse: %v", err)
+			}
+
+			result, err := Extract(doc, "https://example.com/article")
+			if err != nil {
+				t.Fatalf("extract: %v", err)
+			}
+
+			if !strings.Contains(result.Content, tt.want) {
+				t.Errorf("extracted content lost inline text %q\ncontent excerpt: %.300s", tt.want, result.Content)
+			}
+		})
+	}
+}
