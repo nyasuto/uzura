@@ -20,6 +20,9 @@ jobs:
       - uses: actions/setup-go@v6
         with:
           go-version: "1.26"
+          # Release binaries must be built with the newest patch release,
+          # otherwise they ship with already-fixed stdlib vulnerabilities.
+          check-latest: true
 
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v7
