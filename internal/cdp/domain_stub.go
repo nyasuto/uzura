@@ -38,6 +38,15 @@ func registerStubs(s *Server) {
 	// Inspector stubs.
 	s.Handle("Inspector.enable", empty)
 
+	// Audits stubs (puppeteer-core >= 25 enables Audits during page init).
+	s.Handle("Audits.enable", empty)
+	s.Handle("Audits.disable", empty)
+
+	// Network stubs (puppeteer-core >= 25 sends these during page init).
+	// setUserAgentOverride is accepted but not applied; wiring it into the
+	// fetcher is tracked separately.
+	s.Handle("Network.setUserAgentOverride", empty)
+
 	// ServiceWorker stubs.
 	s.Handle("ServiceWorker.enable", empty)
 
