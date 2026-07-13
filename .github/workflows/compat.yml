@@ -1,0 +1,84 @@
+name: Site Compatibility
+
+# Weekly real-site compatibility check. The compat tests (-tags compat) hit
+# live sites (HN, go.dev, Wikipedia, react.dev, Stack Overflow) and are
+# intentionally excluded from PR CI; this workflow catches regressions that
+# only reproduce against real pages (see issue #48). It must never block PRs.
+
+on:
+  schedule:
+    # Weekly run (Mon 07:30 JST).
+    - cron: "30 22 * * 0"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  compat:
+    name: Real-site compatibility
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "1.26"
+          check-latest: true
+
+      - name: Run compat tests (retry once on failure)
+        # Step-level timeout keeps a hang from cancelling the whole job, so
+        # the issue-filing step below still runs on failure.
+        timeout-minutes: 12
+        run: |
+          set -o pipefail
+          run_tests() {
+            go test -tags compat -run TestCompat ./internal/mcp/ -v -count=1 2>&1 | tee -a compat-test.log
+          }
+          if run_tests; then
+            exit 0
+          fi
+          # Retry once to tell real regressions apart from transient site outages.
+          echo "--- first attempt failed; retrying in 30s ---" | tee -a compat-test.log
+          sleep 30
+          run_tests
+
+      - name: Upload test log
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: compat-test-log-${{ github.run_id }}
+          path: compat-test.log
+          if-no-files-found: ignore
+          retention-days: 30
+
+      - name: File or update failure issue
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          {
+            echo "週次 compat テスト（実サイト互換テスト）が失敗しました。"
+            echo ""
+            echo "- Run: ${RUN_URL}"
+            echo "- 一時障害と区別するためテストは 1 回リトライ済みです。"
+            echo "- 詳細ログは Run のアーティファクト \`compat-test-log-*\` を参照してください。"
+          } > /tmp/issue-body.md
+          existing="$(gh issue list --repo "$GITHUB_REPOSITORY" \
+            --label compat-failure --state open \
+            --json number --jq '.[0].number // empty')"
+          if [ -n "$existing" ]; then
+            echo "Open compat-failure issue #$existing exists; adding a comment."
+            gh issue comment "$existing" --repo "$GITHUB_REPOSITORY" \
+              --body-file /tmp/issue-body.md
+          else
+            echo "No open compat-failure issue; creating one."
+            gh issue create --repo "$GITHUB_REPOSITORY" \
+              --title "compat: 実サイト互換テストが失敗 (weekly run)" \
+              --label compat-failure \
+              --body-file /tmp/issue-body.md
+          fi
