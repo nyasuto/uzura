@@ -4,7 +4,27 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    groups:
+      # Bundle minor/patch bumps into one PR; majors stay individual
+      # so breaking changes get reviewed on their own.
+      go-minor-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
+  - package-ecosystem: npm
+    directory: /e2e
+    schedule:
+      interval: weekly
+    groups:
+      e2e-minor-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
+    groups:
+      # Action bumps are low-risk version tags; group them all.
+      actions-all:
+        patterns: ["*"]
