@@ -1,0 +1,55 @@
+name: WPT
+
+on:
+  schedule:
+    # Weekly WPT pass-rate tracking (Mon 07:00 JST).
+    - cron: "0 22 * * 0"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  wpt:
+    name: WPT Pass Rate
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "1.26"
+          # Always resolve the newest patch release, matching ci.yml.
+          check-latest: true
+
+      - name: Run WPT suite
+        # `make wpt` fetches the WPT checkout (sparse) if missing, builds
+        # the binary, and prints the text summary to stdout.
+        # Explicit `shell: bash` enables pipefail so a make failure is not
+        # masked by tee.
+        shell: bash
+        run: make wpt 2>&1 | tee wpt-log.txt
+
+      - name: Export results as JSON
+        # Reuses the binary and WPT checkout from the previous step.
+        run: ./uzura wpt -json > wpt-results.json
+
+      - name: Upload results
+        uses: actions/upload-artifact@v7
+        with:
+          name: wpt-results-${{ github.run_id }}
+          path: |
+            wpt-results.json
+            wpt-log.txt
+          retention-days: 90
+
+      - name: Write job summary
+        run: |
+          {
+            echo "## WPT Results"
+            echo
+            echo '```'
+            grep -E '^(Total:|Pass rate:)' wpt-log.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
