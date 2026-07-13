@@ -38,6 +38,14 @@ func (td *TargetDomain) handleSetAutoAttach(sess *Session, _ json.RawMessage) (j
 		sessionID := generateSessionID()
 
 		td.mu.Lock()
+		// Auto-attach only announces targets that are not yet attached.
+		// Re-announcing (e.g. when a client sends setAutoAttach again, or
+		// Playwright sends it on each page session for worker auto-attach)
+		// makes CDP clients assert on a duplicate target (issue #51).
+		if t.Attached {
+			td.mu.Unlock()
+			continue
+		}
 		t.Attached = true
 		td.sessions[sessionID] = t.TargetID
 		p := td.pages[t.TargetID]

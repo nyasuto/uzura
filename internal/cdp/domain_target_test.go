@@ -419,3 +419,94 @@ func TestTargetSessionMultiplexRouting(t *testing.T) {
 		t.Fatal("expected error for detached session")
 	}
 }
+
+// readUntilResponseCountingEvents reads until a response with the given ID
+// arrives, returning how many times the given event method was seen and the
+// last such event's params.
+func readUntilResponseCountingEvents(t *testing.T, ctx context.Context, conn *websocket.Conn, id int64, method string) (int, json.RawMessage) {
+	t.Helper()
+	count := 0
+	var lastParams json.RawMessage
+	for {
+		_, data, err := conn.Read(ctx)
+		if err != nil {
+			t.Fatalf("read (waiting for id=%d): %v", id, err)
+		}
+		var msg struct {
+			ID     int64           `json:"id"`
+			Method string          `json:"method"`
+			Params json.RawMessage `json:"params"`
+		}
+		_ = json.Unmarshal(data, &msg)
+		if msg.Method == method {
+			count++
+			lastParams = msg.Params
+		}
+		if msg.ID == id {
+			return count, lastParams
+		}
+	}
+}
+
+// Regression test for issue #51: Playwright sends Target.setAutoAttach once at
+// browser level and again on each attached page's session (to auto-attach
+// workers). The second call must not re-announce already-attached targets;
+// a duplicate Target.attachedToTarget for the same targetId makes Playwright's
+// CRBrowser assert with "Duplicate target".
+func TestTargetSetAutoAttachNoDuplicateAttach(t *testing.T) {
+	s, td := setupTargetServer(t)
+	td.AddPage(page.New(nil), "default-context")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	conn, _, err := websocket.Dial(ctx, "ws://"+s.Addr()+"/devtools/page/default", nil)
+	if err != nil {
+		t.Fatalf("dial: %v", err)
+	}
+	defer conn.Close(websocket.StatusNormalClosure, "")
+
+	send := func(id int64, sessionID string) {
+		req := map[string]interface{}{
+			"id":     id,
+			"method": "Target.setAutoAttach",
+			"params": map[string]interface{}{"autoAttach": true, "waitForDebuggerOnStart": false, "flatten": true},
+		}
+		if sessionID != "" {
+			req["sessionId"] = sessionID
+		}
+		data, _ := json.Marshal(req)
+		if err := conn.Write(ctx, websocket.MessageText, data); err != nil {
+			t.Fatalf("write: %v", err)
+		}
+	}
+
+	// 1. Browser-level setAutoAttach: expect exactly one attachedToTarget.
+	send(1, "")
+	count, params := readUntilResponseCountingEvents(t, ctx, conn, 1, "Target.attachedToTarget")
+	if count != 1 {
+		t.Fatalf("browser-level setAutoAttach: attachedToTarget count = %d, want 1", count)
+	}
+	var attached struct {
+		SessionID string `json:"sessionId"`
+	}
+	if err := json.Unmarshal(params, &attached); err != nil || attached.SessionID == "" {
+		t.Fatalf("attachedToTarget params missing sessionId: %s", params)
+	}
+
+	// 2. Page-session setAutoAttach (Playwright's worker auto-attach):
+	//    must not re-announce the already-attached target.
+	send(2, attached.SessionID)
+	count, _ = readUntilResponseCountingEvents(t, ctx, conn, 2, "Target.attachedToTarget")
+	if count != 0 {
+		t.Errorf("page-session setAutoAttach: attachedToTarget count = %d, want 0 (duplicate attach)", count)
+	}
+
+	// 3. Repeated browser-level setAutoAttach: target is already attached,
+	//    so it must not be announced again either.
+	send(3, "")
+	count, _ = readUntilResponseCountingEvents(t, ctx, conn, 3, "Target.attachedToTarget")
+	if count != 0 {
+		t.Errorf("repeated browser-level setAutoAttach: attachedToTarget count = %d, want 0", count)
+	}
+}
