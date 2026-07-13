@@ -169,7 +169,8 @@ jobs:
         run: |
           {
             echo 'report<<BENCHSTAT_EOF'
-            go run "golang.org/x/perf/cmd/benchstat@$BENCHSTAT_VERSION" base.txt head.txt 2>&1
+            # Keep benchstat warnings (stderr) but drop "go: downloading" noise.
+            go run "golang.org/x/perf/cmd/benchstat@$BENCHSTAT_VERSION" base.txt head.txt 2>&1 | grep -v '^go: '
             echo 'BENCHSTAT_EOF'
           } >> "$GITHUB_OUTPUT"
 
