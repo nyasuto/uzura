@@ -68,6 +68,33 @@ jobs:
           go install golang.org/x/vuln/cmd/govulncheck@v1.6.0
           govulncheck ./...
 
+  e2e:
+    name: E2E (CDP)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: github.event_name != 'schedule'
+    needs: quality
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "1.26"
+          check-latest: true
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: e2e/package-lock.json
+
+      - name: Install e2e dependencies
+        run: npm ci --silent
+        working-directory: e2e
+
+      - name: Run E2E tests (Puppeteer / Playwright over CDP)
+        run: make e2e
+
   benchmark:
     name: Benchmark
     runs-on: ubuntu-latest
