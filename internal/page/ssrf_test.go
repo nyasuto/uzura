@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"net/netip"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -157,6 +158,57 @@ func TestJSClient_DialGuardBlocksLoopback(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "private/internal") {
 		t.Errorf("err = %v, want it to mention private/internal address", err)
+	}
+}
+
+// TestJSClient_DialGuardBlocksRedirectToPrivate is the end-to-end proof that
+// the dial-time guard covers the REDIRECT hop specifically, not just the
+// original request URL: a script fetches a URL that 302-redirects to a
+// private address (10.0.0.1, distinct from loopback, so the failure can
+// only come from the redirect target) and the guarded client must refuse
+// to follow it.
+//
+// httptest.NewServer only binds to loopback, which ssrfDialControl also
+// blocks, so a real "public-looking" first hop can't be stood up with a
+// plain net listener here. To isolate the redirect hop, this test wraps
+// ssrfDialControl with a one-address allowlist for exactly the redirecting
+// server's own loopback address (standing in for the trusted public origin
+// the page was served from), while every OTHER dial — including the
+// redirect target — still goes through the real, unmodified
+// ssrfDialControl. If the guard were ever dropped from the redirect path,
+// this test would erroneously reach 10.0.0.1 and fail.
+func TestJSClient_DialGuardBlocksRedirectToPrivate(t *testing.T) {
+	const privateTarget = "10.0.0.1"
+
+	redirector := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "http://"+privateTarget+"/secret", http.StatusFound)
+	}))
+	defer redirector.Close()
+
+	firstHopAddr := redirector.Listener.Addr().String()
+
+	// allowFirstHop delegates to the real ssrfDialControl for every dial
+	// except the redirecting server's own address, which stands in for a
+	// trusted public origin so the redirect hop can be isolated.
+	allowFirstHop := func(dialNetwork, address string, c syscall.RawConn) error {
+		if address == firstHopAddr {
+			return nil
+		}
+		return ssrfDialControl(dialNetwork, address, c)
+	}
+
+	f := network.NewFetcher(nil)
+	client := f.NewJSClient(allowFirstHop)
+
+	_, err := client.Get(redirector.URL)
+	if err == nil {
+		t.Fatal("want error following redirect to private address, got nil")
+	}
+	if !strings.Contains(err.Error(), "private/internal") {
+		t.Errorf("err = %v, want it to mention private/internal address", err)
+	}
+	if !strings.Contains(err.Error(), privateTarget) {
+		t.Errorf("err = %v, want it to name the blocked redirect target %s", err, privateTarget)
 	}
 }
 
