@@ -83,6 +83,8 @@ type Page struct {
 	respStatusCode     int
 	vm                 *js.VM
 	vmOptions          []js.Option
+	localStore         js.Storage
+	sessionStore       js.Storage
 	networkObserver    NetworkObserver
 	requestInterceptor RequestInterceptor
 	closeObserver      CloseObserver
@@ -163,6 +165,8 @@ func (p *Page) Close() error {
 	p.url = ""
 	p.respHeaders = nil
 	p.respStatusCode = 0
+	p.localStore = nil
+	p.sessionStore = nil
 	p.networkObserver = nil
 	p.requestInterceptor = nil
 	p.closeObserver = nil
@@ -239,14 +243,23 @@ func (p *Page) ResponseStatusCode() int {
 	return p.respStatusCode
 }
 
-// VM returns the JavaScript VM, creating one if needed.
+// VM returns the JavaScript VM, creating one if needed. A freshly created VM
+// gets the full binding set (document, fetch/XHR, storage, location) so
+// callers driving the VM directly (e.g. CDP Runtime.evaluate) see the same
+// web APIs as scripts executed during Navigate.
 func (p *Page) VM() *js.VM {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if p.vm == nil {
 		p.vm = js.New(p.vmOptions...)
+		if p.localStore == nil {
+			p.localStore = js.NewMemStorage()
+			p.sessionStore = js.NewMemStorage()
+		}
 		if p.doc != nil {
-			js.BindDocument(p.vm, p.doc)
+			// bindAll only touches vm/doc/local args, not p's fields, so
+			// calling it while p.mu is held here is safe.
+			p.bindAll(p.vm, p.doc, p.url, p.localStore, p.sessionStore)
 		}
 	}
 	return p.vm

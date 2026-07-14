@@ -15,6 +15,13 @@ import (
 func TestOnRequestContinue(t *testing.T) {
 	var gotAuth string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Navigate fires a background favicon.ico request (resource hints)
+		// after the real request completes, bypassing the request
+		// interceptor. Ignore it so it cannot race with/overwrite gotAuth.
+		if r.URL.Path == "/favicon.ico" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
 		gotAuth = r.Header.Get("Authorization")
 		w.Header().Set("Content-Type", "text/html")
 		w.Write([]byte("<html><body>ok</body></html>"))
@@ -105,6 +112,13 @@ func TestOnRequestFulfill(t *testing.T) {
 func TestOnRequestURLRewrite(t *testing.T) {
 	var lastPath string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Navigate fires a background favicon.ico request (resource hints)
+		// after the real request completes. Ignore it so it cannot race
+		// with/overwrite lastPath.
+		if r.URL.Path == "/favicon.ico" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
 		lastPath = r.URL.Path
 		w.Header().Set("Content-Type", "text/html")
 		w.Write([]byte("<html></html>"))
@@ -189,6 +203,13 @@ func TestOnResponseFulfill(t *testing.T) {
 func TestOnRequestAndOnResponseChained(t *testing.T) {
 	var gotHeader string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Navigate fires a background favicon.ico request (resource hints)
+		// after the real request completes, bypassing the request
+		// interceptor. Ignore it so it cannot race with/overwrite gotHeader.
+		if r.URL.Path == "/favicon.ico" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
 		gotHeader = r.Header.Get("X-Custom")
 		w.Header().Set("Content-Type", "text/html")
 		w.Write([]byte("<html><body>chained</body></html>"))

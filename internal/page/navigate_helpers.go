@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"time"
 
 	"github.com/nyasuto/uzura/internal/css"
 	"github.com/nyasuto/uzura/internal/html"
@@ -75,7 +74,7 @@ func (p *Page) Navigate(ctx context.Context, url string) error {
 				p.emitFailed(reqID, url, now(), reason)
 				return fmt.Errorf("navigate %s: blocked by client (%s)", url, reason)
 			case InterceptFulfill:
-				return p.handleFulfill(reqID, url, now, result)
+				return p.handleFulfill(ctx, reqID, url, now, result)
 			case InterceptContinue:
 				if result.URL != "" {
 					fetchURL = result.URL
@@ -143,7 +142,7 @@ func (p *Page) Navigate(ctx context.Context, url string) error {
 				p.emitFailed(reqID, url, now(), reason)
 				return fmt.Errorf("navigate %s: blocked by client (%s)", url, reason)
 			case InterceptFulfill:
-				return p.handleFulfill(reqID, url, now, result)
+				return p.handleFulfill(ctx, reqID, url, now, result)
 			case InterceptContinue:
 				if result.RespStatusCode > 0 {
 					statusCode = result.RespStatusCode
@@ -197,6 +196,10 @@ func (p *Page) Navigate(ctx context.Context, url string) error {
 	// Fire background resource hint requests to mimic browser behavior.
 	go p.sendResourceHintsBg(url, resourceURLs)
 
+	// Execute page scripts now that doc/url are finalized. Script errors and
+	// event-loop ctx errors never fail Navigate (partial-result policy).
+	p.runScripts(ctx)
+
 	return nil
 }
 
@@ -210,7 +213,7 @@ func (p *Page) emitFailed(reqID, url string, ts float64, errText string) {
 	})
 }
 
-func (p *Page) handleFulfill(reqID, url string, now func() float64, result *InterceptResult) error {
+func (p *Page) handleFulfill(ctx context.Context, reqID, url string, now func() float64, result *InterceptResult) error {
 	statusCode := result.ResponseCode
 	if statusCode == 0 {
 		statusCode = 200
@@ -250,45 +253,8 @@ func (p *Page) handleFulfill(reqID, url string, now func() float64, result *Inte
 	p.respHeaders = respHeaders
 	p.respStatusCode = statusCode
 	p.mu.Unlock()
+
+	p.runScripts(ctx)
+
 	return nil
-}
-
-func (p *Page) fetchWithOverrides(ctx context.Context, url string, headers http.Header) (*http.Response, error) {
-	if headers == nil {
-		return p.fetcher.FetchContext(ctx, url)
-	}
-	return p.fetcher.FetchContextWithHeaders(ctx, url, headers)
-}
-
-func mimeFromResponse(resp *http.Response) string {
-	ct := resp.Header.Get("Content-Type")
-	if ct == "" {
-		return "text/html"
-	}
-	for i, c := range ct {
-		if c == ';' {
-			return ct[:i]
-		}
-		_ = i
-	}
-	return ct
-}
-
-func nowFunc() func() float64 {
-	return func() float64 {
-		return float64(time.Now().UnixMilli()) / 1000.0
-	}
-}
-
-// mergeContexts returns a context that is canceled when either parent is done.
-func mergeContexts(ctx1, ctx2 context.Context) (context.Context, context.CancelFunc) {
-	merged, cancel := context.WithCancel(ctx1)
-	go func() {
-		select {
-		case <-ctx2.Done():
-			cancel()
-		case <-merged.Done():
-		}
-	}()
-	return merged, cancel
 }

@@ -2,9 +2,11 @@ package mcp
 
 import (
 	"context"
+	"os"
 	"sync"
 
 	"github.com/nyasuto/uzura/internal/dom"
+	"github.com/nyasuto/uzura/internal/js"
 	"github.com/nyasuto/uzura/internal/page"
 )
 
@@ -47,7 +49,11 @@ func (ps *PageSession) GetOrNavigate(ctx context.Context, url string) (*page.Pag
 	}
 	ps.mu.Unlock()
 
-	p := page.New(nil)
+	// Route page-script console output to stderr: MCP speaks JSON-RPC over
+	// stdio, and Navigate now executes page <script>s, so an unredirected
+	// console.log (which defaults to os.Stdout) would corrupt the protocol
+	// stream.
+	p := page.New(&page.Options{VMOptions: []js.Option{js.WithWriter(os.Stderr)}})
 	if err := p.Navigate(ctx, url); err != nil {
 		p.Close()
 		return nil, err
