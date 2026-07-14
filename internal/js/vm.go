@@ -24,6 +24,7 @@ type VM struct {
 	consoleCallback ConsoleCallback
 	client          HTTPClient
 	baseURL         *url.URL
+	abortStates     map[*goja.Object]*abortState
 }
 
 // Option configures a VM.

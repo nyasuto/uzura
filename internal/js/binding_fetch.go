@@ -1,6 +1,8 @@
 package js
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -29,14 +31,21 @@ func (vm *VM) jsFetch(call goja.FunctionCall) goja.Value {
 	rt := vm.runtime
 	promise, resolve, reject := rt.NewPromise()
 
-	req, err := parseFetchArgs(vm, call)
+	req, state, err := parseFetchArgs(vm, call)
 	if err != nil {
 		_ = reject(rt.NewTypeError(err.Error()))
 		return rt.ToValue(promise)
 	}
+	if state != nil && state.aborted {
+		_ = reject(newAbortError(rt))
+		return rt.ToValue(promise)
+	}
 
 	client := vm.httpClient()
-	ctx := vm.LoopContext()
+	ctx, cancel := context.WithCancel(vm.LoopContext())
+	if state != nil {
+		state.registerCancel(cancel)
+	}
 	vm.loop.addPending()
 	go func() {
 		var resp *HTTPResponse
@@ -52,7 +61,15 @@ func (vm *VM) jsFetch(call goja.FunctionCall) goja.Value {
 		// A single completeWith call per goroutine invocation keeps the
 		// addPending/pending-- balance exact even on the panic path above.
 		vm.loop.completeWith(func() {
+			// cancel is only ever needed to unblock the transport; once we're
+			// back on the loop thread to deliver the result, release the
+			// context's resources regardless of outcome.
+			cancel()
 			if err != nil {
+				if state != nil && state.aborted && errors.Is(err, context.Canceled) {
+					_ = reject(newAbortError(rt))
+					return
+				}
 				_ = reject(rt.NewTypeError("fetch failed: " + err.Error()))
 				return
 			}
@@ -63,19 +80,31 @@ func (vm *VM) jsFetch(call goja.FunctionCall) goja.Value {
 	return rt.ToValue(promise)
 }
 
+// newAbortError builds the JS-visible error object rejected when a fetch is
+// aborted via AbortController, shaped like a DOMException with name
+// "AbortError" (the subset that user code typically checks: err.name).
+func newAbortError(rt *goja.Runtime) *goja.Object {
+	obj := rt.NewObject()
+	_ = obj.Set("name", "AbortError")
+	_ = obj.Set("message", "The operation was aborted")
+	return obj
+}
+
 // parseFetchArgs builds an HTTPRequest from fetch's (url, init) arguments.
 // url is resolved against the document's base URL. init.method defaults to
 // GET and is upper-cased; init.headers copies every own key of the given
-// object; init.body (if present) is coerced to a string. Unknown options
-// (credentials, mode, signal, ...) are silently ignored — uzura has no
-// same-origin/CORS model and no request cancellation wiring yet.
-func parseFetchArgs(vm *VM, call goja.FunctionCall) (HTTPRequest, error) {
+// object; init.body (if present) is coerced to a string. init.signal, if
+// present and recognized (i.e. produced by BindAbort's AbortController), is
+// resolved to its backing abortState and returned as state; unknown options
+// (credentials, mode, ...) are silently ignored — uzura has no
+// same-origin/CORS model.
+func parseFetchArgs(vm *VM, call goja.FunctionCall) (req HTTPRequest, state *abortState, err error) {
 	rt := vm.runtime
 	if len(call.Arguments) < 1 || goja.IsUndefined(call.Argument(0)) {
-		return HTTPRequest{}, fmt.Errorf("fetch: 1 argument required, url is missing")
+		return HTTPRequest{}, nil, fmt.Errorf("fetch: 1 argument required, url is missing")
 	}
 
-	req := HTTPRequest{
+	req = HTTPRequest{
 		Method:  http.MethodGet,
 		URL:     vm.resolveURL(call.Argument(0).String()),
 		Headers: map[string]string{},
@@ -83,7 +112,7 @@ func parseFetchArgs(vm *VM, call goja.FunctionCall) (HTTPRequest, error) {
 
 	initArg := call.Argument(1)
 	if goja.IsUndefined(initArg) || goja.IsNull(initArg) {
-		return req, nil
+		return req, nil, nil
 	}
 	init := initArg.ToObject(rt)
 
@@ -99,8 +128,11 @@ func parseFetchArgs(vm *VM, call goja.FunctionCall) (HTTPRequest, error) {
 	if b := init.Get("body"); b != nil && !goja.IsUndefined(b) && !goja.IsNull(b) {
 		req.Body = []byte(b.String())
 	}
+	if s := init.Get("signal"); s != nil && !goja.IsUndefined(s) && !goja.IsNull(s) {
+		state = vm.abortStateFor(s)
+	}
 
-	return req, nil
+	return req, state, nil
 }
 
 // registerHeadersClass registers the Headers constructor. It exists mainly
