@@ -9,42 +9,6 @@ import (
 	"github.com/dop251/goja"
 )
 
-type timerEntry struct {
-	id       int
-	callback goja.Callable
-	fireAt   time.Time
-	interval time.Duration
-	cleared  bool
-	index    int
-}
-
-type timerHeap []*timerEntry
-
-func (h timerHeap) Len() int           { return len(h) }
-func (h timerHeap) Less(i, j int) bool { return h[i].fireAt.Before(h[j].fireAt) }
-
-func (h timerHeap) Swap(i, j int) {
-	h[i], h[j] = h[j], h[i]
-	h[i].index = i
-	h[j].index = j
-}
-
-func (h *timerHeap) Push(x interface{}) {
-	e, _ := x.(*timerEntry)
-	e.index = len(*h)
-	*h = append(*h, e)
-}
-
-func (h *timerHeap) Pop() interface{} {
-	old := *h
-	n := len(old)
-	e := old[n-1]
-	old[n-1] = nil
-	e.index = -1
-	*h = old[:n-1]
-	return e
-}
-
 type eventLoop struct {
 	mu      sync.Mutex
 	timers  timerHeap
@@ -53,6 +17,17 @@ type eventLoop struct {
 	tasks   []func()
 	pending int
 	wake    chan struct{} // buffered(1): signals a task was added or pending decreased
+
+	// sawActivity is set once any one-shot timer, task, or pending async
+	// operation has ever been registered on this loop. setInterval alone
+	// never sets it. It gates whether a still-live repeating interval is
+	// allowed to be ignored when deciding to settle (see run): a VM used
+	// standalone with nothing but a bare setInterval must keep behaving
+	// like a real timer (waiting for/firing it) rather than exiting before
+	// it ever fires, but once the loop has done real one-shot/async work
+	// and that work has drained, a live interval alone must not hold it
+	// hostage — see TestEventLoop_SettlesWithLiveInterval.
+	sawActivity bool
 
 	// ctx is the context of the currently running loop iteration (set by
 	// RunEventLoopContext via setContext, read by LoopContext from any goroutine,
@@ -80,6 +55,7 @@ func (el *eventLoop) signalWake() {
 func (el *eventLoop) enqueueTask(fn func()) {
 	el.mu.Lock()
 	el.tasks = append(el.tasks, fn)
+	el.sawActivity = true
 	el.mu.Unlock()
 	el.signalWake()
 }
@@ -98,6 +74,7 @@ func (el *eventLoop) enqueueTask(fn func()) {
 func (el *eventLoop) addPending() {
 	el.mu.Lock()
 	el.pending++
+	el.sawActivity = true
 	el.mu.Unlock()
 }
 
@@ -122,6 +99,7 @@ func (el *eventLoop) setTimeout(cb goja.Callable, delay time.Duration) int {
 	}
 	heap.Push(&el.timers, entry)
 	el.byID[entry.id] = entry
+	el.sawActivity = true
 	return entry.id
 }
 
@@ -149,8 +127,16 @@ func (el *eventLoop) clearTimer(id int) {
 	}
 }
 
-// run processes tasks and timers until nothing remains and no async
-// operation is in flight, or ctx is done.
+// run processes tasks and timers until the loop is quiescent or ctx is
+// done. Quiescent means: no queued tasks, no pending async operation
+// (fetch/XHR), and no *one-shot* timer left to fire. A repeating
+// setInterval that is never cleared (e.g. an analytics heartbeat or a CSS
+// animation driver) does NOT by itself keep the loop alive — once the rest
+// of a page's work has settled, run returns even though the interval is
+// still registered. Firing that interval forever "waiting" for it to go
+// away would defeat the point: it never will on its own, so the loop would
+// otherwise only ever exit via ctx cancellation, hanging navigation for the
+// full deadline on ordinary, harmless pages.
 func (el *eventLoop) run(ctx context.Context) error {
 	for {
 		// 1. Drain the task queue first (tasks beat not-yet-due timers).
@@ -197,14 +183,33 @@ func (el *eventLoop) run(ctx context.Context) error {
 		}
 		hasWork := len(el.tasks) > 0
 		pending := el.pending
-		hasTimer := el.timers.Len() > 0
+		hasOneShotTimer := false
+		hasLiveInterval := false
+		for _, entry := range el.timers {
+			if entry.cleared {
+				continue
+			}
+			if entry.interval > 0 {
+				hasLiveInterval = true
+			} else {
+				hasOneShotTimer = true
+			}
+		}
+		sawActivity := el.sawActivity
 		el.mu.Unlock()
 
 		if hasWork {
 			continue
 		}
-		if !hasTimer && pending == 0 {
-			return nil // settled
+		// Settled once nothing beats a still-registered interval: no queued
+		// tasks, no pending async op, no one-shot timer left to fire, and
+		// either no interval is live or (once real one-shot/async activity
+		// has happened and drained) we stop letting it hold the loop
+		// hostage. sawActivity keeps a VM used standalone with nothing but
+		// a bare setInterval behaving like a normal timer instead of never
+		// firing it at all.
+		if pending == 0 && !hasOneShotTimer && (!hasLiveInterval || sawActivity) {
+			return nil
 		}
 
 		// 3. Wait for: next timer, a wake signal, or cancellation.

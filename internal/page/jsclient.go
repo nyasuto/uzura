@@ -104,6 +104,18 @@ func (p *Page) runScripts(ctx context.Context) {
 
 	p.bindAll(vm, doc, pageURL, local, session)
 
+	// Prime the loop's context BEFORE executing top-level scripts: a
+	// fetch()/XMLHttpRequest call made directly from a script's top-level
+	// body (as opposed to from inside a setTimeout/task callback that only
+	// runs once RunEventLoopContext is already pumping) reads vm.LoopContext()
+	// synchronously, before RunEventLoopContext below would otherwise have
+	// set it. Without this, that call captures context.Background() instead
+	// of ctx: the page deadline can never cancel its derived request context,
+	// leaking both the goroutine and the context until the request happens
+	// to finish on its own. RunEventLoopContext re-sets the identical ctx and
+	// its deferred clear still leaves vm.loop's context cleanly reset to nil
+	// once everything settles, so this priming leaves no stale state behind.
+	vm.SetLoopContext(ctx)
 	_ = js.ExecuteScripts(vm, doc)
 	_ = vm.RunEventLoopContext(ctx)
 

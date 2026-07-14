@@ -142,6 +142,57 @@ document.getElementById("out").textContent =
 	}
 }
 
+// TestNavigate_TopLevelFetchRespectsPageDeadline guards against Finding 2 of
+// the js-web-apis event-loop review: a fetch() called directly from a
+// script's top-level body (as opposed to from inside a setTimeout/task
+// callback that only runs once the event loop is already pumping) must
+// inherit the page's navigation deadline, not context.Background().
+//
+// Before the fix, runScripts executed the document's scripts before priming
+// the event loop's context (RunEventLoopContext only sets it afterward), so
+// this fetch's derived request context had no deadline: /slow's handler
+// below would never observe cancellation, and the request goroutine (plus
+// its context.WithCancel) would leak past Navigate's return, only settling
+// whenever the hung request happened to end on its own (never, here).
+func TestNavigate_TopLevelFetchRespectsPageDeadline(t *testing.T) {
+	serverCanceled := make(chan struct{})
+	mux := http.NewServeMux()
+	mux.HandleFunc("/slow", func(_ http.ResponseWriter, r *http.Request) {
+		<-r.Context().Done()
+		close(serverCanceled)
+	})
+	mux.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		fmt.Fprint(w, `<!DOCTYPE html><html><body>
+<script>
+fetch("/slow");
+</script></body></html>`)
+	})
+	ts := httptest.NewServer(mux)
+	defer ts.Close()
+
+	p := New(nil)
+	defer p.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Millisecond)
+	defer cancel()
+
+	// Partial-result policy: the page deadline firing mid-fetch must never
+	// fail Navigate itself.
+	if err := p.Navigate(ctx, ts.URL); err != nil {
+		t.Fatalf("Navigate: %v", err)
+	}
+
+	select {
+	case <-serverCanceled:
+		// Good: the top-level fetch's request context was derived from the
+		// page deadline and got canceled by it, instead of leaking on
+		// context.Background().
+	case <-time.After(5 * time.Second):
+		t.Fatal("server handler never observed cancellation: top-level fetch escaped the page deadline (leaked context/goroutine)")
+	}
+}
+
 // TestNavigate_HandleFulfillExecutesScripts confirms that a mocked response
 // (via OnRequest + Request.Fulfill, the same path CDP's Fetch domain drives)
 // still executes inline scripts and builds the DOM, exactly like a real

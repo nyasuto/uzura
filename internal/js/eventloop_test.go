@@ -165,6 +165,38 @@ func TestEventLoop_ContextDeadline(t *testing.T) {
 	}
 }
 
+// TestEventLoop_SettlesWithLiveInterval guards against the loop hanging for
+// its entire ctx deadline (or forever, on a Background ctx) just because a
+// page registered a repeating setInterval (e.g. an analytics heartbeat or
+// CSS animation driver) that is never cleared. Once all one-shot work
+// (pending async ops, queued tasks, one-shot timers) has settled, the loop
+// must return even though the interval is still live in the timer heap.
+//
+// Uses context.Background() (no deadline) deliberately: only `go test
+// -timeout` would catch a regression here, which is the point — settling
+// must not depend on an external deadline to save it.
+func TestEventLoop_SettlesWithLiveInterval(t *testing.T) {
+	vm := New(WithWriter(io.Discard))
+
+	// A live, never-cleared repeating interval.
+	_, err := vm.Eval(`setInterval(function() {}, 5);`)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Simulates a fetch/XHR resolving shortly after the loop starts: one
+	// pending async op that completes via completeWith, like real bindings.
+	vm.loop.addPending()
+	go func() {
+		time.Sleep(20 * time.Millisecond)
+		vm.loop.completeWith(func() {})
+	}()
+
+	if err := vm.RunEventLoopContext(context.Background()); err != nil {
+		t.Fatalf("RunEventLoopContext: %v", err)
+	}
+}
+
 func TestEventLoop_TasksAndTimersInterleave(t *testing.T) {
 	// 検証意図: タスクは「まだ期限が来ていないタイマー」より先に処理される
 	vm := New(WithWriter(io.Discard))

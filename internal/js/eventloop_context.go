@@ -49,6 +49,28 @@ func (el *eventLoop) completeWith(fn func()) {
 	el.signalWake()
 }
 
+// SetLoopContext records ctx as the event loop's context ahead of running
+// the loop itself. Callers that execute top-level script code before
+// invoking RunEventLoopContext (see internal/page's runScripts) must call
+// this first: otherwise a fetch()/XMLHttpRequest call made directly from a
+// script's top-level body (as opposed to from inside a setTimeout/task
+// callback that only runs once the loop is already pumping) observes
+// LoopContext() as context.Background() instead of the page's deadline,
+// so the request can never be canceled by it and its derived context leaks
+// until the request itself happens to finish.
+//
+// It is safe — and expected — to also pass the same ctx to
+// RunEventLoopContext afterward: RunEventLoopContext re-sets the identical
+// context and its deferred clearContext still leaves the loop's context
+// cleanly reset to nil once everything settles, so a later reuse of this VM
+// (or the next navigation) never observes a stale context.
+func (vm *VM) SetLoopContext(ctx context.Context) {
+	if vm.loop == nil {
+		return
+	}
+	vm.loop.setContext(ctx)
+}
+
 // RunEventLoopContext processes timers, tasks and in-flight async work
 // until everything settles or ctx is done. Returns ctx.Err() on cancellation.
 //
