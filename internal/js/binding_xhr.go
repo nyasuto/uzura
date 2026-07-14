@@ -50,6 +50,14 @@ type xhrState struct {
 	listeners          map[string][]goja.Callable
 
 	cancel context.CancelFunc
+
+	// timeoutCtx is the context created from state.timeout by xhrSend (nil
+	// when no timeout is set). deliverXHRResult uses it, rather than the
+	// error's mere DeadlineExceeded-ness, to decide between firing ontimeout
+	// and onerror: a page-level deadline threaded through
+	// RunEventLoopContext also produces context.DeadlineExceeded, but must
+	// not be misreported as this XHR's own timeout.
+	timeoutCtx context.Context
 }
 
 // BindXHR registers the global XMLHttpRequest constructor on vm, including

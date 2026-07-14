@@ -149,6 +149,7 @@ func (vm *VM) xhrSend(rt *goja.Runtime, obj *goja.Object, state *xhrState, body 
 		timeoutCtx, timeoutCancel = context.WithTimeout(ctx, state.timeout)
 		reqCtx = timeoutCtx
 	}
+	state.timeoutCtx = timeoutCtx
 
 	vm.loop.addPending()
 	go func() {
@@ -186,7 +187,7 @@ func (vm *VM) deliverXHRResult(rt *goja.Runtime, obj *goja.Object, state *xhrSta
 		state.readyState = xhrDone
 		state.status = 0
 		vm.fireXHRReadyState(rt, obj, state)
-		if isTimeoutErr(err) {
+		if isTimeoutErr(err, state) {
 			vm.fireXHREvent(rt, "timeout", state.onTimeout, state)
 		} else {
 			vm.fireXHREvent(rt, "error", state.onError, state)
@@ -211,9 +212,18 @@ func (vm *VM) deliverXHRResult(rt *goja.Runtime, obj *goja.Object, state *xhrSta
 	vm.fireXHREvent(rt, "load", state.onLoad, state)
 }
 
-// isTimeoutErr reports whether err originates from xhrSend's own
-// context.WithTimeout deadline, as opposed to a generic transport failure
-// (which is reported via onerror instead).
-func isTimeoutErr(err error) bool {
-	return errors.Is(err, context.DeadlineExceeded)
+// isTimeoutErr reports whether err originates from this XHR's own
+// state.timeout deadline (state.timeoutCtx), as opposed to a generic
+// transport failure or an outer/page-level deadline threaded in via
+// RunEventLoopContext — both of which also surface as
+// context.DeadlineExceeded but must be reported via onerror instead. Only
+// state.timeoutCtx's own expiry counts as this XHR's timeout; a bare
+// context.DeadlineExceeded is not sufficient evidence on its own since it
+// also propagates from the page-level context when no per-request timeout
+// was set.
+func isTimeoutErr(err error, state *xhrState) bool {
+	if state.timeout <= 0 || state.timeoutCtx == nil {
+		return false
+	}
+	return errors.Is(err, context.DeadlineExceeded) && errors.Is(state.timeoutCtx.Err(), context.DeadlineExceeded)
 }
