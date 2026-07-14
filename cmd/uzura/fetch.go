@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/nyasuto/uzura/internal/dom"
+	"github.com/nyasuto/uzura/internal/js"
 	"github.com/nyasuto/uzura/internal/network"
 	"github.com/nyasuto/uzura/internal/page"
 	"github.com/nyasuto/uzura/internal/semantic"
@@ -45,7 +46,10 @@ func runFetch() error {
 	ctx, cancel := context.WithTimeout(context.Background(), *timeout)
 	defer cancel()
 
-	pg := page.New(&page.Options{Fetcher: f})
+	// Route page console.log/warn/error/info to stderr: page.New defaults to
+	// os.Stdout, which would otherwise corrupt the text/json/html/markdown
+	// output this command writes to stdout.
+	pg := page.New(&page.Options{Fetcher: f, VMOptions: []js.Option{js.WithWriter(os.Stderr)}})
 	if err := pg.Navigate(ctx, url); err != nil {
 		return err
 	}

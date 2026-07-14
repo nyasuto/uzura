@@ -141,3 +141,43 @@ document.getElementById("out").textContent =
 		t.Errorf("#out textContent = %q, want %q", got, want)
 	}
 }
+
+// TestNavigate_HandleFulfillExecutesScripts confirms that a mocked response
+// (via OnRequest + Request.Fulfill, the same path CDP's Fetch domain drives)
+// still executes inline scripts and builds the DOM, exactly like a real
+// network response would. This exercises handleFulfill's runScripts call.
+func TestNavigate_HandleFulfillExecutesScripts(t *testing.T) {
+	p := New(nil)
+	defer p.Close()
+
+	p.OnRequest(func(req *Request) {
+		req.Fulfill(FulfillOption{
+			Status:  200,
+			Headers: map[string]string{"Content-Type": "text/html"},
+			Body: []byte(`<!DOCTYPE html><html><body><div id="root"></div>
+<script>
+var h1 = document.createElement("h1");
+h1.textContent = "mocked title";
+document.getElementById("root").appendChild(h1);
+</script></body></html>`),
+		})
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	// Fulfilled responses never hit the network, so any URL works here.
+	if err := p.Navigate(ctx, "http://mocked.invalid/page"); err != nil {
+		t.Fatal(err)
+	}
+
+	h1, err := p.Document().QuerySelector("h1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if h1 == nil {
+		t.Fatal("h1 not found: handleFulfill did not execute the mocked response's script")
+	}
+	if h1.TextContent() != "mocked title" {
+		t.Errorf("h1 = %q, want %q", h1.TextContent(), "mocked title")
+	}
+}

@@ -2,6 +2,7 @@ package cdp
 
 import (
 	"encoding/json"
+	"os"
 
 	"github.com/nyasuto/uzura/internal/js"
 	"github.com/nyasuto/uzura/internal/network"
@@ -32,7 +33,13 @@ func Setup(s *Server) *page.Page {
 
 	// Target domain: manages page targets with session multiplexing.
 	targetDomain := NewTargetDomain(s, func() (*page.Page, error) {
-		newPage := page.New(&page.Options{Fetcher: fetcher})
+		// Route console output to stderr, matching the primary page: CDP
+		// itself talks over WebSocket so raw console text on stdout isn't
+		// protocol-corrupting here, but it should still not pollute stdout.
+		newPage := page.New(&page.Options{
+			Fetcher:   fetcher,
+			VMOptions: []js.Option{js.WithWriter(os.Stderr)},
+		})
 		return newPage, nil
 	})
 

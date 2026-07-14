@@ -69,6 +69,18 @@ func (p *Page) bindAll(vm *js.VM, doc *dom.Document, pageURL string, local, sess
 // done. Script errors and event-loop ctx errors never fail navigation
 // (partial-result policy): they are ignored here, and Navigate still
 // returns nil for them.
+//
+// The VM is built and run on a local variable and is only published to
+// p.vm once script execution and the event loop have fully settled.
+// goja.Runtime is not safe for concurrent use, so the in-progress runtime
+// must stay private to this goroutine until it's done: a concurrent VM()
+// call (e.g. CDP Runtime.evaluate/callFunctionOn) during that window sees
+// the still-nil (or stale, previous-navigation) p.vm and builds its own
+// separate VM instead of reaching into the one being executed here. That
+// VM() caller briefly sees an out-of-date state (or triggers an extra VM
+// build), but it can never race with runScripts, because the two never
+// share the same *goja.Runtime pointer while either might be running JS
+// on it.
 func (p *Page) runScripts(ctx context.Context) {
 	p.mu.Lock()
 	doc := p.doc
@@ -78,10 +90,15 @@ func (p *Page) runScripts(ctx context.Context) {
 		p.sessionStore = js.NewMemStorage()
 	}
 	local, session := p.localStore, p.sessionStore
-	vm := js.New(p.vmOptions...)
-	p.vm = vm
 	p.mu.Unlock()
+
+	vm := js.New(p.vmOptions...)
 	if doc == nil {
+		// Nothing to execute; still refresh p.vm as before (a fresh,
+		// unbound VM), matching prior behavior for this edge case.
+		p.mu.Lock()
+		p.vm = vm
+		p.mu.Unlock()
 		return
 	}
 
@@ -89,4 +106,8 @@ func (p *Page) runScripts(ctx context.Context) {
 
 	_ = js.ExecuteScripts(vm, doc)
 	_ = vm.RunEventLoopContext(ctx)
+
+	p.mu.Lock()
+	p.vm = vm
+	p.mu.Unlock()
 }
