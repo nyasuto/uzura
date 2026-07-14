@@ -5,6 +5,7 @@ package js
 import (
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"strings"
 
@@ -21,6 +22,8 @@ type VM struct {
 	writer          io.Writer
 	loop            *eventLoop
 	consoleCallback ConsoleCallback
+	client          HTTPClient
+	baseURL         *url.URL
 }
 
 // Option configures a VM.
