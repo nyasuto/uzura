@@ -22,8 +22,23 @@ const maxJSResponseBytes = 10 << 20
 // Unlike top-level Navigate (which the user/agent explicitly directs, even
 // to localhost), JS-initiated requests originate from untrusted browsed
 // page script. By default they are blocked from reaching private/internal
-// destinations (SSRF protection; see checkJSNetworkTarget) unless the Page
-// was created with Options.AllowPrivateNetworkJS.
+// destinations (SSRF protection) unless the Page was created with
+// Options.AllowPrivateNetworkJS. Two layers enforce this:
+//
+//  1. checkJSNetworkTarget is a fast-fail pre-check on the original URL,
+//     run once here before any network I/O.
+//  2. p.jsClient (built by network.Fetcher.NewJSClient in New) is the REAL
+//     enforcement: its transport dials through ssrfDialControl, which
+//     re-checks the actual resolved IP on every dial, including each
+//     redirect hop. This is what a pre-request URL check alone cannot do —
+//     a public URL that later 302s to a private address, or a hostname
+//     that DNS-rebinds between the pre-check and the dial, is caught here
+//     because the address checked is exactly the one being connected to.
+//
+// Requests are issued via p.fetcher.FetchRequestWithClient(p.jsClient, ...)
+// rather than FetchRequest, so JS traffic goes through the guarded client
+// while top-level Navigate (which uses the Fetcher's own client) is never
+// subject to this restriction.
 func (p *Page) jsHTTPClient() js.HTTPClient {
 	return func(ctx context.Context, req js.HTTPRequest) (*js.HTTPResponse, error) {
 		if !p.allowPrivateNetworkJS {
@@ -35,7 +50,7 @@ func (p *Page) jsHTTPClient() js.HTTPClient {
 		for k, v := range req.Headers {
 			headers.Set(k, v)
 		}
-		resp, err := p.fetcher.FetchRequest(ctx, req.Method, req.URL, headers, req.Body)
+		resp, err := p.fetcher.FetchRequestWithClient(ctx, p.jsClient, req.Method, req.URL, headers, req.Body)
 		if err != nil {
 			return nil, err
 		}

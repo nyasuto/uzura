@@ -53,6 +53,7 @@ type FetcherOptions struct {
 // Fetcher performs HTTP requests with redirect tracking and timeouts.
 type Fetcher struct {
 	client     *http.Client
+	transport  *http.Transport
 	userAgent  string
 	obeyRobots bool
 	robots     robotsCache
@@ -135,6 +136,7 @@ func NewFetcher(opts *FetcherOptions) *Fetcher {
 
 	return &Fetcher{
 		client:     client,
+		transport:  transport,
 		userAgent:  ua,
 		obeyRobots: obeyRobots,
 		robots:     robotsCache{rules: make(map[string]*robotsRules)},
@@ -161,10 +163,19 @@ func (f *Fetcher) FetchContextWithHeaders(ctx context.Context, url string, extra
 	return f.fetchWithRetry(ctx, http.MethodGet, url, extraHeaders, nil)
 }
 
-// fetchWithRetry performs the request identified by method/url/body, retrying
-// transient errors and 503/429 responses up to MaxRetries times with
-// exponential backoff. Intended for idempotent methods (GET/HEAD).
+// fetchWithRetry performs the request identified by method/url/body using
+// the Fetcher's own client, retrying transient errors and 503/429 responses
+// up to MaxRetries times with exponential backoff. Intended for idempotent
+// methods (GET/HEAD).
 func (f *Fetcher) fetchWithRetry(ctx context.Context, method, url string, extraHeaders http.Header, body []byte) (*http.Response, error) {
+	return f.fetchWithRetryClient(ctx, f.client, method, url, extraHeaders, body)
+}
+
+// fetchWithRetryClient is fetchWithRetry parameterized over the *http.Client
+// to issue requests through, so callers needing extra per-request transport
+// behavior (e.g. NewJSClient's dial-time SSRF guard) can reuse this retry
+// logic without going through the Fetcher's own client.
+func (f *Fetcher) fetchWithRetryClient(ctx context.Context, client *http.Client, method, url string, extraHeaders http.Header, body []byte) (*http.Response, error) {
 	var lastErr error
 	for attempt := 0; attempt <= MaxRetries; attempt++ {
 		if attempt > 0 {
@@ -176,7 +187,7 @@ func (f *Fetcher) fetchWithRetry(ctx context.Context, method, url string, extraH
 			}
 		}
 
-		resp, err := f.doFetchMethod(ctx, method, url, extraHeaders, body)
+		resp, err := f.doFetchMethodClient(ctx, client, method, url, extraHeaders, body)
 		if err == nil {
 			// Retry on server errors (503 Service Unavailable, 429 Too Many Requests)
 			if resp.StatusCode == http.StatusServiceUnavailable || resp.StatusCode == http.StatusTooManyRequests {
@@ -198,11 +209,12 @@ func (f *Fetcher) fetchWithRetry(ctx context.Context, method, url string, extraH
 	return nil, fmt.Errorf("fetching %s after %d retries: %w", url, MaxRetries, lastErr)
 }
 
-// doFetchMethod performs a single request with the given method, browser-like
-// default headers, and optional body. extraHeaders are applied last and take
-// precedence over the defaults. body is used verbatim as the request body when
-// non-empty; an empty body results in http.NoBody.
-func (f *Fetcher) doFetchMethod(ctx context.Context, method, url string, extraHeaders http.Header, body []byte) (*http.Response, error) {
+// doFetchMethodClient performs a single request with the given method,
+// browser-like default headers, and optional body, issuing it through
+// client (see fetchWithRetryClient). extraHeaders are applied last and take
+// precedence over the defaults. body is used verbatim as the request body
+// when non-empty; an empty body results in http.NoBody.
+func (f *Fetcher) doFetchMethodClient(ctx context.Context, client *http.Client, method, url string, extraHeaders http.Header, body []byte) (*http.Response, error) {
 	var reqBody io.Reader = http.NoBody
 	if len(body) > 0 {
 		reqBody = bytes.NewReader(body)
@@ -229,7 +241,7 @@ func (f *Fetcher) doFetchMethod(ctx context.Context, method, url string, extraHe
 		}
 	}
 
-	return f.client.Do(req)
+	return client.Do(req)
 }
 
 // isRetryable returns true for transient network errors worth retrying.

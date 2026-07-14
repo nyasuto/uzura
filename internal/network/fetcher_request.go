@@ -21,13 +21,27 @@ import (
 //
 // The caller must close the response body.
 func (f *Fetcher) FetchRequest(ctx context.Context, method, url string, extraHeaders http.Header, body []byte) (*http.Response, error) {
+	return f.FetchRequestWithClient(ctx, f.client, method, url, extraHeaders, body)
+}
+
+// FetchRequestWithClient behaves like FetchRequest but issues the request
+// through client instead of the Fetcher's own client. This lets callers
+// that need extra per-request transport behavior — most notably
+// JS-initiated fetch/XHR, which must enforce a dial-time SSRF guard that
+// top-level navigation must NOT be subject to — reuse FetchRequest's retry
+// logic, default headers, and User-Agent while supplying a client built via
+// Fetcher.NewJSClient (or any other *http.Client sharing this Fetcher's
+// cookie jar).
+//
+// The caller must close the response body.
+func (f *Fetcher) FetchRequestWithClient(ctx context.Context, client *http.Client, method, url string, extraHeaders http.Header, body []byte) (*http.Response, error) {
 	merged := mergeHeaders(subresourceDefaultHeaders(), extraHeaders)
 
 	if method == http.MethodGet || method == http.MethodHead {
-		return f.fetchWithRetry(ctx, method, url, merged, body)
+		return f.fetchWithRetryClient(ctx, client, method, url, merged, body)
 	}
 
-	resp, err := f.doFetchMethod(ctx, method, url, merged, body)
+	resp, err := f.doFetchMethodClient(ctx, client, method, url, merged, body)
 	if err != nil {
 		return nil, fmt.Errorf("fetching %s: %w", url, err)
 	}

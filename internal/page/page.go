@@ -96,6 +96,12 @@ type Page struct {
 	// etc.). Set once in New and never mutated afterward, so it's safe
 	// to read without p.mu (same pattern as p.fetcher).
 	allowPrivateNetworkJS bool
+
+	// jsClient is the *http.Client used for all JS-initiated requests
+	// (fetch/XMLHttpRequest); see newJSClientFor in ssrf.go for what it
+	// enforces and why. Set once in New and never mutated afterward, so
+	// it's safe to read without p.mu (same pattern as p.fetcher).
+	jsClient *http.Client
 }
 
 // Options configures a Page.
@@ -136,6 +142,7 @@ func New(opts *Options) *Page {
 	if f == nil {
 		f = network.NewFetcher(nil)
 	}
+	jsClient := newJSClientFor(f, allowPrivateJS)
 	id := fmt.Sprintf("page-%d", pageIDCounter.Add(1))
 	ctx, cancel := context.WithCancel(context.Background())
 	return &Page{
@@ -147,6 +154,7 @@ func New(opts *Options) *Page {
 		networkObserver:       obs,
 		requestInterceptor:    intercept,
 		allowPrivateNetworkJS: allowPrivateJS,
+		jsClient:              jsClient,
 	}
 }
 
