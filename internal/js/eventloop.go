@@ -265,4 +265,3 @@ func (vm *VM) setupTimers() {
 		return goja.Undefined()
 	})
 }
-
