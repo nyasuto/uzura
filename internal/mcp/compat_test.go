@@ -21,6 +21,15 @@ var compatSites = []compatSite{
 	{Name: "Wikipedia", URL: "https://en.wikipedia.org/wiki/Web_browser"},
 	{Name: "ReactDev", URL: "https://react.dev/"},
 	{Name: "StackOverflow", URL: "https://stackoverflow.com/"},
+	// Qiita is a CSR (client-side rendered) site: its initial HTML is mostly
+	// empty and content is built by JS fetching data after load. It exercises
+	// the new fetch/XHR + event-loop-driven Navigate path (Task 1-9). We don't
+	// assert an h1 here specifically because TestCompat_QueryH1 already treats
+	// a missing h1 as informational (t.Logf), not a failure, for every site in
+	// this table; Qiita's h1 presence is not guaranteed to be stable across
+	// their frontend deploys, so we rely on the shared non-empty-content
+	// assertions in the other TestCompat_* functions instead.
+	{Name: "Qiita", URL: "https://qiita.com/"},
 }
 
 func TestCompat_BrowseText(t *testing.T) {
