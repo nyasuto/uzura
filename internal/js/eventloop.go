@@ -2,6 +2,7 @@ package js
 
 import (
 	"container/heap"
+	"context"
 	"sync"
 	"time"
 
@@ -45,16 +46,50 @@ func (h *timerHeap) Pop() interface{} {
 }
 
 type eventLoop struct {
-	mu     sync.Mutex
-	timers timerHeap
-	nextID int
-	byID   map[int]*timerEntry
+	mu      sync.Mutex
+	timers  timerHeap
+	nextID  int
+	byID    map[int]*timerEntry
+	tasks   []func()
+	pending int
+	wake    chan struct{} // buffered(1): signals a task was added or pending decreased
 }
 
 func newEventLoop() *eventLoop {
 	return &eventLoop{
 		byID: make(map[int]*timerEntry),
+		wake: make(chan struct{}, 1),
 	}
+}
+
+func (el *eventLoop) signalWake() {
+	select {
+	case el.wake <- struct{}{}:
+	default:
+	}
+}
+
+// enqueueTask schedules fn to run on the loop thread.
+func (el *eventLoop) enqueueTask(fn func()) {
+	el.mu.Lock()
+	el.tasks = append(el.tasks, fn)
+	el.mu.Unlock()
+	el.signalWake()
+}
+
+// addPending marks one in-flight async operation (e.g. an HTTP request).
+func (el *eventLoop) addPending() {
+	el.mu.Lock()
+	el.pending++
+	el.mu.Unlock()
+}
+
+// donePending marks one in-flight async operation as finished.
+func (el *eventLoop) donePending() {
+	el.mu.Lock()
+	el.pending--
+	el.mu.Unlock()
+	el.signalWake()
 }
 
 func (el *eventLoop) setTimeout(cb goja.Callable, delay time.Duration) int {
@@ -95,47 +130,83 @@ func (el *eventLoop) clearTimer(id int) {
 	}
 }
 
-// run processes all pending timers until none remain.
-func (el *eventLoop) run(runtime *goja.Runtime) {
+// run processes tasks and timers until nothing remains and no async
+// operation is in flight, or ctx is done.
+func (el *eventLoop) run(ctx context.Context) error {
 	for {
+		// 1. Drain the task queue first (tasks beat not-yet-due timers).
+		for {
+			el.mu.Lock()
+			if len(el.tasks) == 0 {
+				el.mu.Unlock()
+				break
+			}
+			task := el.tasks[0]
+			el.tasks = el.tasks[1:]
+			el.mu.Unlock()
+			task()
+		}
+
+		// 2. Fire due timers (one at a time so new tasks get priority).
 		el.mu.Lock()
-		if el.timers.Len() == 0 {
-			el.mu.Unlock()
-			return
+		var wait time.Duration = -1
+		if el.timers.Len() > 0 {
+			entry := el.timers[0]
+			if entry.cleared {
+				heap.Pop(&el.timers)
+				el.mu.Unlock()
+				continue
+			}
+			now := time.Now()
+			if !entry.fireAt.After(now) {
+				heap.Pop(&el.timers)
+				cb := entry.callback
+				isInterval := entry.interval > 0
+				el.mu.Unlock()
+				_, _ = cb(goja.Undefined())
+				if isInterval {
+					el.mu.Lock()
+					if !entry.cleared {
+						entry.fireAt = time.Now().Add(entry.interval)
+						heap.Push(&el.timers, entry)
+					}
+					el.mu.Unlock()
+				}
+				continue
+			}
+			wait = entry.fireAt.Sub(now)
 		}
-		entry := el.timers[0]
-		if entry.cleared {
-			heap.Pop(&el.timers)
-			el.mu.Unlock()
-			continue
-		}
-
-		now := time.Now()
-		if entry.fireAt.After(now) {
-			wait := entry.fireAt.Sub(now)
-			el.mu.Unlock()
-			time.Sleep(wait)
-			continue
-		}
-
-		heap.Pop(&el.timers)
-		cb := entry.callback
-		isInterval := entry.interval > 0
+		hasWork := len(el.tasks) > 0
+		pending := el.pending
+		hasTimer := el.timers.Len() > 0
 		el.mu.Unlock()
 
-		_, _ = cb(goja.Undefined())
-
-		if isInterval {
-			el.mu.Lock()
-			if !entry.cleared {
-				entry.fireAt = time.Now().Add(entry.interval)
-				heap.Push(&el.timers, entry)
-			}
-			el.mu.Unlock()
+		if hasWork {
+			continue
+		}
+		if !hasTimer && pending == 0 {
+			return nil // settled
 		}
 
-		// Check if runtime context is still valid
-		_ = runtime
+		// 3. Wait for: next timer, a wake signal, or cancellation.
+		var timerC <-chan time.Time
+		var timer *time.Timer
+		if wait >= 0 {
+			timer = time.NewTimer(wait)
+			timerC = timer.C
+		}
+		select {
+		case <-ctx.Done():
+			if timer != nil {
+				timer.Stop()
+			}
+			return ctx.Err()
+		case <-el.wake:
+		case <-timerC:
+		}
+		if timer != nil {
+			timer.Stop()
+		}
 	}
 }
 
@@ -176,9 +247,27 @@ func (vm *VM) setupTimers() {
 	})
 }
 
+// RunEventLoopContext processes timers, tasks and in-flight async work
+// until everything settles or ctx is done. Returns ctx.Err() on cancellation.
+func (vm *VM) RunEventLoopContext(ctx context.Context) error {
+	if vm.loop == nil {
+		return nil
+	}
+	vm.loopCtx = ctx
+	defer func() { vm.loopCtx = nil }()
+	return vm.loop.run(ctx)
+}
+
 // RunEventLoop processes all pending timers and callbacks until the queue is empty.
 func (vm *VM) RunEventLoop() {
-	if vm.loop != nil {
-		vm.loop.run(vm.runtime)
+	_ = vm.RunEventLoopContext(context.Background())
+}
+
+// LoopContext returns the context of the currently running event loop.
+// Async bindings (fetch/XHR) use it for their HTTP requests.
+func (vm *VM) LoopContext() context.Context {
+	if vm.loopCtx != nil {
+		return vm.loopCtx
 	}
+	return context.Background()
 }
