@@ -89,6 +89,13 @@ type Page struct {
 	requestInterceptor RequestInterceptor
 	closeObserver      CloseObserver
 	closed             bool
+
+	// allowPrivateNetworkJS disables SSRF protection for JS-initiated
+	// requests (fetch/XMLHttpRequest) when true, allowing them to reach
+	// private/internal destinations (loopback, RFC1918, link-local,
+	// etc.). Set once in New and never mutated afterward, so it's safe
+	// to read without p.mu (same pattern as p.fetcher).
+	allowPrivateNetworkJS bool
 }
 
 // Options configures a Page.
@@ -97,6 +104,16 @@ type Options struct {
 	VMOptions          []js.Option
 	NetworkObserver    NetworkObserver
 	RequestInterceptor RequestInterceptor
+
+	// AllowPrivateNetworkJS opts out of SSRF protection for JS-initiated
+	// requests (fetch/XMLHttpRequest). By default, such requests to
+	// private/internal destinations (loopback, RFC1918 private ranges,
+	// link-local incl. cloud metadata, IPv6 unique-local, etc.) are
+	// blocked, since an untrusted browsed page must not be able to reach
+	// internal services or cloud metadata via in-page script. Set this to
+	// true only when the browsed content is trusted and needs to reach
+	// such destinations (e.g. testing against a local server).
+	AllowPrivateNetworkJS bool
 }
 
 // New creates a new Page with the given options.
@@ -106,6 +123,7 @@ func New(opts *Options) *Page {
 	var vmOpts []js.Option
 	var obs NetworkObserver
 	var intercept RequestInterceptor
+	var allowPrivateJS bool
 	if opts != nil {
 		if opts.Fetcher != nil {
 			f = opts.Fetcher
@@ -113,6 +131,7 @@ func New(opts *Options) *Page {
 		vmOpts = opts.VMOptions
 		obs = opts.NetworkObserver
 		intercept = opts.RequestInterceptor
+		allowPrivateJS = opts.AllowPrivateNetworkJS
 	}
 	if f == nil {
 		f = network.NewFetcher(nil)
@@ -120,13 +139,14 @@ func New(opts *Options) *Page {
 	id := fmt.Sprintf("page-%d", pageIDCounter.Add(1))
 	ctx, cancel := context.WithCancel(context.Background())
 	return &Page{
-		id:                 id,
-		ctx:                ctx,
-		cancel:             cancel,
-		fetcher:            f,
-		vmOptions:          vmOpts,
-		networkObserver:    obs,
-		requestInterceptor: intercept,
+		id:                    id,
+		ctx:                   ctx,
+		cancel:                cancel,
+		fetcher:               f,
+		vmOptions:             vmOpts,
+		networkObserver:       obs,
+		requestInterceptor:    intercept,
+		allowPrivateNetworkJS: allowPrivateJS,
 	}
 }
 

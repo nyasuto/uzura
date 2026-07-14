@@ -10,6 +10,56 @@ import (
 	"time"
 )
 
+// TestNavigate_JSFetchBlocksPrivateNetworkByDefault proves the SSRF
+// protection default: a Page created WITHOUT the AllowPrivateNetworkJS
+// opt-out must refuse a JS-initiated fetch() to a loopback destination
+// (here, an httptest server on 127.0.0.1). The fetch promise rejects, so
+// the script's .then callback (which would build <h1>) never runs and the
+// DOM is not mutated.
+func TestNavigate_JSFetchBlocksPrivateNetworkByDefault(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/post", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, `{"title":"should not be fetched"}`)
+	})
+	mux.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		fmt.Fprint(w, `<!DOCTYPE html><html><body><div id="root">Loading...</div>
+<script>
+fetch("/api/post").then(function(r){ return r.json(); }).then(function(data){
+  var h1 = document.createElement("h1");
+  h1.textContent = data.title;
+  document.getElementById("root").textContent = "";
+  document.getElementById("root").appendChild(h1);
+}).catch(function(e){
+  document.getElementById("root").textContent = "blocked: " + e;
+});
+</script></body></html>`)
+	})
+	ts := httptest.NewServer(mux)
+	defer ts.Close()
+
+	p := New(nil) // no AllowPrivateNetworkJS opt-out: private JS requests blocked by default
+	defer p.Close()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := p.Navigate(ctx, ts.URL); err != nil {
+		t.Fatal(err)
+	}
+
+	h1, err := p.Document().QuerySelector("h1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if h1 != nil {
+		t.Fatalf("h1 = %q, want none: JS fetch to loopback destination should have been blocked by default", h1.TextContent())
+	}
+	root := p.Document().GetElementById("root")
+	if root == nil || !strings.Contains(root.TextContent(), "blocked") {
+		t.Errorf("#root textContent = %q, want it to reflect a blocked fetch rejection", root.TextContent())
+	}
+}
+
 // TestNavigate_ExecutesScriptsWithFetch models a CSR page: the initial HTML
 // contains only an empty #root, and a script fetches JSON and builds the
 // DOM from it. This verifies Navigate now executes scripts and drives the
@@ -38,7 +88,9 @@ fetch("/api/post").then(function(r){ return r.json(); }).then(function(data){
 	ts := httptest.NewServer(mux)
 	defer ts.Close()
 
-	p := New(nil)
+	// The in-page script fetches the httptest server on 127.0.0.1, which
+	// SSRF protection blocks by default: opt out for this trusted test server.
+	p := New(&Options{AllowPrivateNetworkJS: true})
 	defer p.Close()
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -88,7 +140,9 @@ xhr.send();
 	ts := httptest.NewServer(mux)
 	defer ts.Close()
 
-	p := New(nil)
+	// The in-page script XHRs the httptest server on 127.0.0.1, which SSRF
+	// protection blocks by default: opt out for this trusted test server.
+	p := New(&Options{AllowPrivateNetworkJS: true})
 	defer p.Close()
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -171,7 +225,9 @@ fetch("/slow");
 	ts := httptest.NewServer(mux)
 	defer ts.Close()
 
-	p := New(nil)
+	// The in-page script fetches the httptest server on 127.0.0.1, which
+	// SSRF protection blocks by default: opt out for this trusted test server.
+	p := New(&Options{AllowPrivateNetworkJS: true})
 	defer p.Close()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Millisecond)

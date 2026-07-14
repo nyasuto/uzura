@@ -18,8 +18,19 @@ const maxJSResponseBytes = 10 << 20
 // robots policy are shared with page navigation. No CORS checks are
 // applied: uzura is an agent browser and does not carry a human user's
 // cross-site credentials.
+//
+// Unlike top-level Navigate (which the user/agent explicitly directs, even
+// to localhost), JS-initiated requests originate from untrusted browsed
+// page script. By default they are blocked from reaching private/internal
+// destinations (SSRF protection; see checkJSNetworkTarget) unless the Page
+// was created with Options.AllowPrivateNetworkJS.
 func (p *Page) jsHTTPClient() js.HTTPClient {
 	return func(ctx context.Context, req js.HTTPRequest) (*js.HTTPResponse, error) {
+		if !p.allowPrivateNetworkJS {
+			if err := checkJSNetworkTarget(ctx, req.URL); err != nil {
+				return nil, err
+			}
+		}
 		headers := http.Header{}
 		for k, v := range req.Headers {
 			headers.Set(k, v)
