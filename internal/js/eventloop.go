@@ -53,6 +53,13 @@ type eventLoop struct {
 	tasks   []func()
 	pending int
 	wake    chan struct{} // buffered(1): signals a task was added or pending decreased
+
+	// ctx is the context of the currently running loop iteration (set by
+	// run, read by LoopContext from any goroutine, including fetch/XHR
+	// worker goroutines). Guarded by mu so there is a proper happens-before
+	// edge between the loop clearing it and other goroutines observing the
+	// clear — a bare field here previously raced under -race.
+	ctx context.Context
 }
 
 func newEventLoop() *eventLoop {
@@ -60,6 +67,36 @@ func newEventLoop() *eventLoop {
 		byID: make(map[int]*timerEntry),
 		wake: make(chan struct{}, 1),
 	}
+}
+
+// setContext records ctx as the context of the currently running loop
+// iteration. Guarded by mu; safe to call concurrently with loopContext.
+func (el *eventLoop) setContext(ctx context.Context) {
+	el.mu.Lock()
+	el.ctx = ctx
+	el.mu.Unlock()
+}
+
+// clearContext resets the stored loop context once the loop has stopped
+// running, so loopContext falls back to context.Background().
+func (el *eventLoop) clearContext() {
+	el.mu.Lock()
+	el.ctx = nil
+	el.mu.Unlock()
+}
+
+// loopContext returns the context of the currently running loop, or
+// context.Background() if no loop is running. Safe to call from any
+// goroutine, including fetch/XHR worker goroutines started while the loop
+// is running.
+func (el *eventLoop) loopContext() context.Context {
+	el.mu.Lock()
+	ctx := el.ctx
+	el.mu.Unlock()
+	if ctx != nil {
+		return ctx
+	}
+	return context.Background()
 }
 
 func (el *eventLoop) signalWake() {
@@ -77,16 +114,43 @@ func (el *eventLoop) enqueueTask(fn func()) {
 	el.signalWake()
 }
 
-// addPending marks one in-flight async operation (e.g. an HTTP request).
+// addPending marks one in-flight async operation (e.g. an HTTP request) as
+// started. Every addPending call must be balanced by exactly one matching
+// donePending (or completeWith) call; an over-decrement of pending below
+// zero makes the loop treat itself as perpetually "still busy" and hang
+// until ctx cancellation, since it will never observe pending == 0.
+//
+// Ordering hazard: if the async operation's result must be delivered to the
+// loop via enqueueTask, do NOT call enqueueTask and donePending separately
+// from a background goroutine — the loop can observe pending == 0 with an
+// empty queue between the two calls and settle, orphaning the enqueued
+// task. Use completeWith instead, which performs both under one lock.
 func (el *eventLoop) addPending() {
 	el.mu.Lock()
 	el.pending++
 	el.mu.Unlock()
 }
 
-// donePending marks one in-flight async operation as finished.
+// donePending marks one in-flight async operation as finished. See addPending
+// for the balancing requirement (pending must never go negative) and the
+// completeWith ordering hazard when a task also needs to be enqueued.
 func (el *eventLoop) donePending() {
 	el.mu.Lock()
+	el.pending--
+	el.mu.Unlock()
+	el.signalWake()
+}
+
+// completeWith enqueues fn and marks one pending async operation as
+// finished in a single critical section, so the loop can never settle
+// between the two. Prefer this over separate enqueueTask+donePending calls
+// whenever an async operation (e.g. fetch/XHR) delivers its result via a
+// task: performing both under one lock acquisition closes the window where
+// the loop could observe pending == 0 with an empty task queue and exit,
+// orphaning fn.
+func (el *eventLoop) completeWith(fn func()) {
+	el.mu.Lock()
+	el.tasks = append(el.tasks, fn)
 	el.pending--
 	el.mu.Unlock()
 	el.signalWake()
@@ -249,12 +313,17 @@ func (vm *VM) setupTimers() {
 
 // RunEventLoopContext processes timers, tasks and in-flight async work
 // until everything settles or ctx is done. Returns ctx.Err() on cancellation.
+//
+// Not reentrant: RunEventLoopContext must not be called again (e.g. from a
+// nested/recursive call while one is already running on this VM's loop) —
+// a nested call clobbers the stored context that LoopContext hands out to
+// concurrently running fetch/XHR goroutines.
 func (vm *VM) RunEventLoopContext(ctx context.Context) error {
 	if vm.loop == nil {
 		return nil
 	}
-	vm.loopCtx = ctx
-	defer func() { vm.loopCtx = nil }()
+	vm.loop.setContext(ctx)
+	defer vm.loop.clearContext()
 	return vm.loop.run(ctx)
 }
 
@@ -263,11 +332,13 @@ func (vm *VM) RunEventLoop() {
 	_ = vm.RunEventLoopContext(context.Background())
 }
 
-// LoopContext returns the context of the currently running event loop.
-// Async bindings (fetch/XHR) use it for their HTTP requests.
+// LoopContext returns the context of the currently running event loop, or
+// context.Background() if no loop is running. Safe to call concurrently
+// from any goroutine — async bindings (fetch/XHR) use it for their HTTP
+// requests from worker goroutines while the loop runs on another one.
 func (vm *VM) LoopContext() context.Context {
-	if vm.loopCtx != nil {
-		return vm.loopCtx
+	if vm.loop == nil {
+		return context.Background()
 	}
-	return context.Background()
+	return vm.loop.loopContext()
 }

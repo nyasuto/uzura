@@ -3,7 +3,6 @@
 package js
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"os"
@@ -21,7 +20,6 @@ type VM struct {
 	runtime         *goja.Runtime
 	writer          io.Writer
 	loop            *eventLoop
-	loopCtx         context.Context
 	consoleCallback ConsoleCallback
 }
 

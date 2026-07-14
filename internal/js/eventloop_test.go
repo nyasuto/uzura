@@ -135,6 +135,26 @@ func TestEventLoop_WaitsForPending(t *testing.T) {
 	}
 }
 
+// TestEventLoop_CompleteWithAvoidsOrphan guards against the settle race where
+// a goroutine's donePending() is observed before its matching enqueueTask()
+// lands, letting the loop conclude pending==0 with an empty queue and exit
+// while the "completing" task is still orphaned outside the queue.
+func TestEventLoop_CompleteWithAvoidsOrphan(t *testing.T) {
+	vm := New(WithWriter(io.Discard))
+	var got bool
+	vm.loop.addPending()
+	go func() {
+		time.Sleep(50 * time.Millisecond)
+		vm.loop.completeWith(func() { got = true })
+	}()
+	if err := vm.RunEventLoopContext(context.Background()); err != nil {
+		t.Fatalf("RunEventLoopContext: %v", err)
+	}
+	if !got {
+		t.Error("loop settled before the completing task ran")
+	}
+}
+
 func TestEventLoop_ContextDeadline(t *testing.T) {
 	vm := New(WithWriter(io.Discard))
 	vm.loop.addPending() // 誰も donePending しない = ハングのシミュレーション
