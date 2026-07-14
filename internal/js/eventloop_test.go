@@ -135,10 +135,9 @@ func TestEventLoop_WaitsForPending(t *testing.T) {
 	}
 }
 
-// TestEventLoop_CompleteWithAvoidsOrphan guards against the settle race where
-// a goroutine's donePending() is observed before its matching enqueueTask()
-// lands, letting the loop conclude pending==0 with an empty queue and exit
-// while the "completing" task is still orphaned outside the queue.
+// TestEventLoop_CompleteWithAvoidsOrphan verifies the behavioral contract of
+// completeWith: enqueuing a task and decrementing pending in a single critical
+// section, so the loop can never settle with pending work still in transit.
 func TestEventLoop_CompleteWithAvoidsOrphan(t *testing.T) {
 	vm := New(WithWriter(io.Discard))
 	var got bool
