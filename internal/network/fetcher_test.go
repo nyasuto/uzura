@@ -2,6 +2,7 @@ package network
 
 import (
 	"context"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"sync/atomic"
@@ -320,5 +321,65 @@ func TestFetchRetryExhausted503(t *testing.T) {
 	}
 	if got := attempts.Load(); got != 3 {
 		t.Errorf("attempts = %d, want 3", got)
+	}
+}
+
+func TestFetchRequest_PostBody(t *testing.T) {
+	var gotMethod, gotBody, gotCT, gotDest, gotMode string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotMethod = r.Method
+		b, _ := io.ReadAll(r.Body)
+		gotBody = string(b)
+		gotCT = r.Header.Get("Content-Type")
+		gotDest = r.Header.Get("Sec-Fetch-Dest")
+		gotMode = r.Header.Get("Sec-Fetch-Mode")
+		w.WriteHeader(200)
+	}))
+	defer srv.Close()
+
+	f := NewFetcher(nil)
+	headers := http.Header{}
+	headers.Set("Content-Type", "application/json")
+	resp, err := f.FetchRequest(context.Background(), "POST", srv.URL, headers, []byte(`{"a":1}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+
+	if gotMethod != "POST" || gotBody != `{"a":1}` || gotCT != "application/json" {
+		t.Errorf("got method=%s body=%s ct=%s", gotMethod, gotBody, gotCT)
+	}
+	if gotDest != "empty" || gotMode != "cors" {
+		t.Errorf("Sec-Fetch-Dest=%s Sec-Fetch-Mode=%s, want empty/cors", gotDest, gotMode)
+	}
+}
+
+func TestFetchRequest_NoRetryOnPost(t *testing.T) {
+	var attempts atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		attempts.Add(1)
+		w.WriteHeader(http.StatusServiceUnavailable)
+	}))
+	defer srv.Close()
+
+	f := NewFetcher(&FetcherOptions{Timeout: 10 * time.Second})
+
+	resp, err := f.FetchRequest(context.Background(), "POST", srv.URL, nil, nil)
+	if err != nil {
+		t.Fatalf("FetchRequest failed: %v", err)
+	}
+	resp.Body.Close()
+	if got := attempts.Load(); got != 1 {
+		t.Errorf("POST attempts = %d, want 1 (no retry on non-idempotent method)", got)
+	}
+
+	attempts.Store(0)
+	resp2, err := f.FetchRequest(context.Background(), "GET", srv.URL, nil, nil)
+	if err != nil {
+		t.Fatalf("FetchRequest failed: %v", err)
+	}
+	resp2.Body.Close()
+	if got := attempts.Load(); got <= 1 {
+		t.Errorf("GET attempts = %d, want >1 (retry applies to GET)", got)
 	}
 }

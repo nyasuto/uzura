@@ -2,6 +2,7 @@
 package network
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"errors"
@@ -157,6 +158,13 @@ func (f *Fetcher) FetchContext(ctx context.Context, url string) (*http.Response,
 // Transient errors are retried up to MaxRetries times with exponential backoff.
 // The caller must close the response body.
 func (f *Fetcher) FetchContextWithHeaders(ctx context.Context, url string, extraHeaders http.Header) (*http.Response, error) {
+	return f.fetchWithRetry(ctx, http.MethodGet, url, extraHeaders, nil)
+}
+
+// fetchWithRetry performs the request identified by method/url/body, retrying
+// transient errors and 503/429 responses up to MaxRetries times with
+// exponential backoff. Intended for idempotent methods (GET/HEAD).
+func (f *Fetcher) fetchWithRetry(ctx context.Context, method, url string, extraHeaders http.Header, body []byte) (*http.Response, error) {
 	var lastErr error
 	for attempt := 0; attempt <= MaxRetries; attempt++ {
 		if attempt > 0 {
@@ -168,7 +176,7 @@ func (f *Fetcher) FetchContextWithHeaders(ctx context.Context, url string, extra
 			}
 		}
 
-		resp, err := f.doFetch(ctx, url, extraHeaders)
+		resp, err := f.doFetchMethod(ctx, method, url, extraHeaders, body)
 		if err == nil {
 			// Retry on server errors (503 Service Unavailable, 429 Too Many Requests)
 			if resp.StatusCode == http.StatusServiceUnavailable || resp.StatusCode == http.StatusTooManyRequests {
@@ -190,8 +198,17 @@ func (f *Fetcher) FetchContextWithHeaders(ctx context.Context, url string, extra
 	return nil, fmt.Errorf("fetching %s after %d retries: %w", url, MaxRetries, lastErr)
 }
 
-func (f *Fetcher) doFetch(ctx context.Context, url string, extraHeaders http.Header) (*http.Response, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
+// doFetchMethod performs a single request with the given method, browser-like
+// default headers, and optional body. extraHeaders are applied last and take
+// precedence over the defaults. body is used verbatim as the request body when
+// non-empty; an empty body results in http.NoBody.
+func (f *Fetcher) doFetchMethod(ctx context.Context, method, url string, extraHeaders http.Header, body []byte) (*http.Response, error) {
+	var reqBody io.Reader = http.NoBody
+	if len(body) > 0 {
+		reqBody = bytes.NewReader(body)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, method, url, reqBody)
 	if err != nil {
 		return nil, fmt.Errorf("creating request: %w", err)
 	}
