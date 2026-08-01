@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "devDependencies": {
-    "puppeteer-core": "^25.3.0",
-    "playwright-core": "^1.61.1"
+    "puppeteer-core": "^25.4.0",
+    "playwright-core": "^1.62.0"
   }
 }
