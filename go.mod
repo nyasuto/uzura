@@ -4,11 +4,11 @@ go 1.26.1
 
 require (
 	codeberg.org/readeck/go-readability/v2 v2.1.3
-	github.com/andybalholm/brotli v1.2.6
+	github.com/andybalholm/brotli v1.2.7
 	github.com/andybalholm/cascadia v1.3.5
 	github.com/coder/websocket v1.8.15
 	github.com/dop251/goja v0.0.0-20260311135729-065cd970411c
-	golang.org/x/net v0.61.0
+	golang.org/x/net v0.62.0
 	golang.org/x/text v0.43.0
 )
 
